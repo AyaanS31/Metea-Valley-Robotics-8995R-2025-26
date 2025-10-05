@@ -1,2 +1,2 @@
 # Metea Valley Robotics 8995R 2025-26
-This is a Github Repo for storing all code for our team 8995R and managing code efficiently.
+This is the main repository for 8995R's VEX Robotics Code for the 2025-26 VEX Season, Push Back. 
