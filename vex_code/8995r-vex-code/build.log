@@ -1,0 +1,3 @@
+Compiled src/drivetrain.cpp [31;01m[ERRORS][0m
+/bin/sh: line 1: arm-none-eabi-g++: command not found
+make: *** [common.mk:284: bin/drivetrain.cpp.o] Error 127

@@ -39,7 +39,7 @@
 /**
  * You should add more #includes here
  */
-//#include "okapi/api.hpp"
+// #include "okapi/api.hpp"
 
 /**
  * If you find doing pros::Motor() to be tedious and you'd prefer just to do
@@ -74,7 +74,17 @@ void opcontrol(void);
 /**
  * You can add C++-only headers here
  */
-//#include <iostream>
+#include <vector>
+
+// Forward-declare Drivetrain so other translation units can reference the global
+class Drivetrain;
+
+// Shared globals defined in src/main.cpp
+extern Drivetrain* drivetrain;
+extern std::vector<double> global_position;
+extern double global_heading;
+// IMU defined in src/main.cpp
+extern pros::Imu imu_sensor;
 #endif
 
 #endif  // _PROS_MAIN_H_
