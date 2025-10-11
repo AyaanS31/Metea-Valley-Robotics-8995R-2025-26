@@ -1,6 +1,26 @@
 #include "main.h"
+#include <cmath>
+#include <vector>
+#include "drivetrain.h"
+#include "odom.hpp"
+using namespace std;
 
-/**
+/* THINGS TO CHANGE: 
+-> PORT NUMBERS FOR DRIVETRAIN CLASS INPUTS 
+-> PID Constants in pid.cpp
+-> Inertial sensor Port number 
+-> Other sensor ports
+*/
+
+// Define the global drivetrain pointer declared in include/drivetrain.h
+Drivetrain* drivetrain = nullptr;
+
+vector<double> global_position = {0.0, 0.0}; // (x, y) in inches (starting at origin)
+double global_heading = 0.0; // In radians, facing east (starting heading)
+
+pros::Imu imu_sensor(7); // Example port number for IMU
+
+/*
  * A callback function for LLEMU's center button.
  *
  * When this callback is fired, it will toggle line 2 of the LCD text between
@@ -25,6 +45,7 @@ void on_center_button() {
 void initialize() {
 	pros::lcd::initialize();
 	pros::lcd::set_text(1, "Hello PROS User!");
+	imu_sensor.reset(); // Reset IMU at start 
 
 	pros::lcd::register_btn1_cb(on_center_button);
 }
@@ -58,6 +79,8 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
+
+
 void autonomous() {}
 
 /**
@@ -74,21 +97,20 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
+
 	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::MotorGroup left_mg({1, -2, 3});    // Creates a motor group with forwards ports 1 & 3 and reversed port 2
-	pros::MotorGroup right_mg({-4, 5, -6});  // Creates a motor group with forwards port 5 and reversed ports 4 & 6
+	// Create a persistent drivetrain instance (lives for program lifetime). Used a Class to make it more modular and reusable
+	static Drivetrain drive({1, -2, 3}, {-4, 5, -6}); // Sample Port numbers. Change Later!
+	// point global pointer to the persistent drivetrain instance so other modules can use it
+	drivetrain = &drive;
 
-
+	// create and start odometry (wheel diameter and track width values are placeholders)
+	static Odometry odom(&drive, 3.25 /* wheel diameter inches. adjust */, 100.0 /* track width mm */);
+	odom.start();
 	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);  // Prints status of the emulated screen LCDs
-
-		// Arcade control scheme
-		int dir = master.get_analog(ANALOG_LEFT_Y);    // Gets amount forward/backward from left joystick
-		int turn = master.get_analog(ANALOG_RIGHT_X);  // Gets the turn left/right from right joystick
-		left_mg.move(dir - turn);                      // Sets left motor voltage
-		right_mg.move(dir + turn);                     // Sets right motor voltage
-		pros::delay(20);                               // Run for 20 ms then update
+		int left_speed = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+		int right_speed = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+		drive.tank_drive(left_speed, right_speed);
+		pros::delay(20);
 	}
 }
