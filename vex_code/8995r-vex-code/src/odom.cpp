@@ -1,81 +1,73 @@
-// Odometry implementation using the Odometry class defined in include/odom.hpp
 #include "odom.hpp"
-#include <cmath>
+#include "main.cpp"
 
-Odometry::Odometry(Drivetrain* drivetrain, double wheel_diameter_mm, double track_width_mm)
-    : drivetrain_(drivetrain), x_(0.0), y_(0.0), theta_(0.0),
-      wheel_diameter_mm_(wheel_diameter_mm), track_width_mm_(track_width_mm),
-      running_(false), task_handle_(nullptr) {}
+// ODOMETRY TASK IMPLEMENTATION (Corrected Fusion Logic)
 
-Odometry::~Odometry() {
-    stop();
-}
+void odom_task(void* param) {
+    // --- 1. INITIALIZATION & RESET (Only runs once) ---
+    
+    // Reset ALL sensor encoders at the start
+    encoder_vertical.reset(); 
+    encoder_strafe.reset();
+    drivetrain->left_motors.tare_position();  // Assuming Drivetrain class exposes the motor groups
+    drivetrain->right_motors.tare_position(); // Assuming Drivetrain class exposes the motor groups
 
-void Odometry::start() {
-    if (running_) return;
-    running_ = true;
-    task_handle_ = new pros::Task(&Odometry::task_entry, this, "odometry_task");
-}
+    // Initial Last Readings (To calculate the first delta correctly)
+    long last_vertical_ticks = encoder_vertical.get_value();
+    long last_strafe_ticks = encoder_strafe.get_value();
+    double last_left_motor_pos = drivetrain->get_left_position(); 
+    double last_right_motor_pos = drivetrain->get_right_position();
 
-void Odometry::stop() {
-    if (!running_) return;
-    running_ = false;
-    // Let the task exit on its own; delete handle
-    if (task_handle_) {
-        delete task_handle_;
-        task_handle_ = nullptr;
+    // The continuous loop
+    while (true) {
+        // --- 2. READ CURRENT VALUES ---
+        // Pods (ADI Encoders) - Raw Ticks
+        double current_vertical_ticks = encoder_vertical.get_value();
+        double current_strafe_ticks = encoder_strafe.get_value();
+        
+        // Motors (V5 Encoders) - Position in configured units (e.g., degrees)
+        double current_left_motor_pos = drivetrain->get_left_position();
+        double current_right_motor_pos = drivetrain->get_right_position();
+
+        // --- 3. CALCULATE DELTAS (Change in Distance/Position) ---
+        // Convert the change in ticks/degrees to distance (inches)
+        double delta_vertical = (current_vertical_ticks - last_vertical_ticks) * POD_TICK_TO_INCH;
+        double delta_strafe = (current_strafe_ticks - last_strafe_ticks) * POD_TICK_TO_INCH;
+        double delta_left_motor = (current_left_motor_pos - last_left_motor_pos) * MOTOR_TICK_TO_INCH;
+        double delta_right_motor = (current_right_motor_pos - last_right_motor_pos) * MOTOR_TICK_TO_INCH;
+
+        // --- 4. FUSION: CALCULATE POSE CHANGES ---
+        
+        // d_theta: Calculate rotation from the difference in motor movement
+        double delta_theta = (delta_right_motor - delta_left_motor) / TRACK_WIDTH; 
+        
+        // Average angle during the step
+        double avg_theta = current_pos.theta + (delta_theta / 2.0); 
+
+        // d_x_local: Forward movement from vertical pod
+        double delta_x_local = delta_vertical;
+        
+        // d_y_local: Sideways movement from strafe pod, CORRECTED for turn
+        double delta_y_local = delta_strafe - (delta_theta * STRAFE_CENTER_OFFSET);
+
+        // --- 5. CONVERT LOCAL TO GLOBAL MOVEMENT (Rotation Matrix) ---
+        double d_x_global = delta_x_local * std::cos(avg_theta) - delta_y_local * std::sin(avg_theta);
+        double d_y_global = delta_x_local * std::sin(avg_theta) + delta_y_local * std::cos(avg_theta);
+
+        // --- 6. UPDATE GLOBAL POSE ---
+        current_pos.x += d_x_global;
+        current_pos.y += d_y_global;
+        current_pos.theta += delta_theta;
+
+        // Normalize theta to [-PI, PI) radians (or any standard range)
+        current_pos.theta = std::fmod(current_pos.theta + M_PI, 2 * M_PI) - M_PI;
+
+        // --- 7. UPDATE LAST READINGS ---
+        last_vertical_ticks = current_vertical_ticks;
+        last_strafe_ticks = current_strafe_ticks;
+        last_left_motor_pos = current_left_motor_pos;
+        last_right_motor_pos = current_right_motor_pos;
+
+        pros::delay(5);
     }
-}
-
-double Odometry::get_x() const { return x_; }
-double Odometry::get_y() const { return y_; }
-double Odometry::get_theta() const { return theta_; }
-
-void Odometry::task_entry(void* ptr) {
-    Odometry* self = static_cast<Odometry*>(ptr);
-    if (self) self->run();
-}
-
-void Odometry::run() {
-    const double wheel_circumference = wheel_diameter_mm_ * M_PI; 
-    const double ticks_per_rev = 360.0; // encoder ticks per motor revolution
-
-    double prev_left_ticks = 0.0; // initial left encoder ticks
-    double prev_right_ticks = 0.0; // initial right encoder ticks 
-
-    while (running_) {
-        double left_ticks = 0.0;
-        double right_ticks = 0.0;
-        if (drivetrain_) {
-            // Getting the position of the left and right encoders
-            left_ticks = drivetrain_->get_left_position();
-            right_ticks = drivetrain_->get_right_position();
-        }
-        // Calculate changes in encoder ticks since last update
-        double delta_left = left_ticks - prev_left_ticks;
-        double delta_right = right_ticks - prev_right_ticks;
-
-        prev_left_ticks = left_ticks;
-        prev_right_ticks = right_ticks;
-
-        // Convert ticks to distance (mm)
-        double left_distance = (delta_left / ticks_per_rev) * wheel_circumference;
-        double right_distance = (delta_right / ticks_per_rev) * wheel_circumference;
-
-        double delta_distance = (left_distance + right_distance) / 2.0;
-        double delta_theta_rad = (right_distance - left_distance) / track_width_mm_; // radians
-
-        // Update pose
-        theta_ += delta_theta_rad * (180.0 / M_PI);
-        // normalize
-        if (theta_ >= 360.0) theta_ -= 360.0;
-        if (theta_ < 0.0) theta_ += 360.0;
-
-        double theta_rad = theta_ * (M_PI / 180.0); // in radians
-        x_ += delta_distance * cos(theta_rad); // 
-        y_ += delta_distance * sin(theta_rad);
-
-        pros::delay(20);
-    }
-}
-
+};
