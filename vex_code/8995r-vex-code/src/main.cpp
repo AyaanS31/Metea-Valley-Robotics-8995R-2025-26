@@ -1,25 +1,50 @@
 #include "main.h"
 #include <cmath>
 #include <vector>
-#include "drivetrain.h"
-#include "odom.hpp"
-using namespace std;
+// Assume this includes the Drivetrain class definition
+#include "drivetrain.h" 
+#include "pros/adi.h"
+#include "pros/motors.h"
 
-/* THINGS TO CHANGE: 
--> PORT NUMBERS FOR DRIVETRAIN CLASS INPUTS 
--> PID Constants in pid.cpp
--> Inertial sensor Port number 
--> Other sensor ports
-*/
+// --- GLOBAL STATE & SENSORS ---
 
-// Define the global drivetrain pointer declared in include/drivetrain.h
+// Define the global drivetrain pointer (must be initialized in initialize())
 Drivetrain* drivetrain = nullptr;
 
-vector<double> global_position = {0.0, 0.0}; // (x, y) in inches (starting at origin)
-double global_heading = 0.0; // In radians, facing east (starting heading)
+// 1. Pose struct (Represents the robot's global position)
+struct Pose { 
+    double x = 0.0;     // X position (inches)
+    double y = 0.0;     // Y position (inches)
+    double theta = 0.0; // Orientation (radians)
+};
+Pose current_pos;
 
-pros::Imu imu_sensor(7); // Example port number for IMU
+// 2. Sensor Definitions (ADI Encoders for Translation)
+// NOTE: Change these placeholder ports to match your hardware setup!
+// Vertical Pod (Forward/Backward movement)
+pros::ADIEncoder encoder_vertical('A', 'B', false);
+// Horizontal Pod (Strafe/Sideways movement)
+pros::ADIEncoder encoder_strafe('C', 'D', false);
+// Inertial Sensor for heading correction (optional, but good practice)
+pros::Imu imu_sensor(7); 
+// Other sensors (like distance)
+pros::Distance distance_sensor(8);
 
+// 3. Calibration Constants (CRITICAL FOR ACCURACY)
+const double TRACK_WIDTH = 12.5;         // Distance between left/right motor centers (in)
+const double STRAFE_CENTER_OFFSET = 3.0; // Distance from robot center to horizontal pod axle (in)
+
+// Conversion factors: (Wheel Diameter * PI) / Ticks Per Rev
+// Assuming ADI Encoders (360 ticks) and 2.75" wheels
+const double POD_TICK_TO_INCH = (2.75 * M_PI) / 360.0; 
+// Assuming V5 Motors set to report in DEGREES (360 degrees per rev) and 4" wheels
+const double MOTOR_TICK_TO_INCH = (4.0 * M_PI) / 360.0; 
+
+// Internal variables to hold sensor readings from the previous loop iteration
+double last_vertical_ticks = 0.0;
+double last_strafe_ticks = 0.0;
+double last_left_motor_pos = 0.0; 
+double last_right_motor_pos = 0.0; 
 /*
  * A callback function for LLEMU's center button.
  *
@@ -34,6 +59,17 @@ void on_center_button() {
 	} else {
 		pros::lcd::clear_line(2);
 	}
+}
+
+// -- DISTANCE SENSOR CORRECTION FUNCTION -- 
+
+
+
+int deadband(int value, int threshold) {
+    if (std::abs(value) < threshold) {
+        return 0;
+    }
+    return value;
 }
 
 /**
@@ -97,20 +133,26 @@ void autonomous() {}
  * task, not resume it from where it left off.
  */
 void opcontrol() {
+    pros::Controller master(pros::E_CONTROLLER_MASTER);
+    const int DEADBAND_THRESHOLD = 5; // Analog values below 5 will be zeroed out
 
-	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	// Create a persistent drivetrain instance (lives for program lifetime). Used a Class to make it more modular and reusable
-	static Drivetrain drive({1, -2, 3}, {-4, 5, -6}); // Sample Port numbers. Change Later!
-	// point global pointer to the persistent drivetrain instance so other modules can use it
-	drivetrain = &drive;
+    while (true) {
+        // Read raw analog values
+        int left_y = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+        int right_y = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
 
-	// create and start odometry (wheel diameter and track width values are placeholders)
-	static Odometry odom(&drive, 3.25 /* wheel diameter inches. adjust */, 100.0 /* track width mm */);
-	odom.start();
-	while (true) {
-		int left_speed = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-		int right_speed = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
-		drive.tank_drive(left_speed, right_speed);
-		pros::delay(20);
-	}
+        // Apply deadband for smoother control
+        int left_speed = deadband(left_y, DEADBAND_THRESHOLD);
+        int right_speed = deadband(right_y, DEADBAND_THRESHOLD);
+
+        // Tank Drive Control using the Drivetrain class method
+        if (drivetrain) {
+            drivetrain->tank_drive(left_speed, right_speed);
+        }
+
+        // Display odometry position on the controller (optional)
+        master.set_text(0, 0, "X:" + std::to_string(int(current_pos.x)) + " Y:" + std::to_string(int(current_pos.y)));
+
+        pros::delay(20);
+    }
 }
