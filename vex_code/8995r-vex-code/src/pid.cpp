@@ -35,7 +35,6 @@ void do_turn(double angle, double turn_timeout){
         double prev_turn = 0.0; // persist previous error across iterations for derivative
         while(counter < turn_timeout){
             // update the shared global_heading (do NOT redeclare a new local variable)
-            global_heading = wrap_angle(imu_sensor.get_heading() * M_PI / 180.0);
             turn_error = angle - global_heading;
             double turn_derivative = (turn_error - prev_turn);
             double turn_output = (kP_turn * turn_error) + (kI_turn * 0.0) + (kD_turn * turn_derivative); // total error output
