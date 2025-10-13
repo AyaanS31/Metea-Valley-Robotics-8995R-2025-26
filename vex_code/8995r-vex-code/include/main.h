@@ -89,6 +89,7 @@ class Drivetrain;
 extern Drivetrain* drivetrain;
 extern std::vector<double> global_position;
 extern double global_heading;
+extern Pose current_pos;
 // IMU defined in src/main.cpp
 extern pros::Imu imu_sensor;
 #endif
