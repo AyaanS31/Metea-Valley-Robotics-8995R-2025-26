@@ -1,7 +1,12 @@
 #include "odom.hpp"
-#include "main.cpp"
+#include "main.h"
 
 // ODOMETRY TASK IMPLEMENTATION (Corrected Fusion Logic)
+
+extern Pose current_pos;
+extern pros::ADIEncoder encoder_vertical;
+extern pros::ADIEncoder encoder_strafe;
+extern Drivetrain* drivetrain;
 
 void odom_task(void* param) {
     // --- 1. INITIALIZATION & RESET (Only runs once) ---
@@ -31,24 +36,22 @@ void odom_task(void* param) {
 
         // --- 3. CALCULATE DELTAS (Change in Distance/Position) ---
         // Convert the change in ticks/degrees to distance (inches)
-        double delta_vertical = (current_vertical_ticks - last_vertical_ticks) * POD_TICK_TO_INCH;
-        double delta_strafe = (current_strafe_ticks - last_strafe_ticks) * POD_TICK_TO_INCH;
-        double delta_left_motor = (current_left_motor_pos - last_left_motor_pos) * MOTOR_TICK_TO_INCH;
-        double delta_right_motor = (current_right_motor_pos - last_right_motor_pos) * MOTOR_TICK_TO_INCH;
+        double delta_vertical = (current_vertical_ticks - last_vertical_ticks) * pod_tick_to_inch;
+        double delta_strafe = (current_strafe_ticks - last_strafe_ticks) * pod_tick_to_inch;
+        double delta_left_motor = (current_left_motor_pos - last_left_motor_pos) * motor_tick_to_inch;
+        double delta_right_motor = (current_right_motor_pos - last_right_motor_pos) * motor_tick_to_inch;
 
         // --- 4. FUSION: CALCULATE POSE CHANGES ---
         
         // d_theta: Calculate rotation from the difference in motor movement
-        double delta_theta = (delta_right_motor - delta_left_motor) / TRACK_WIDTH; 
+        double delta_theta = (delta_right_motor - delta_left_motor) / track_width; 
         
         // Average angle during the step
         double avg_theta = current_pos.theta + (delta_theta / 2.0); 
 
         // d_x_local: Forward movement from vertical pod
         double delta_x_local = delta_vertical;
-        
-        // d_y_local: Sideways movement from strafe pod, CORRECTED for turn
-        double delta_y_local = delta_strafe - (delta_theta * STRAFE_CENTER_OFFSET);
+        double delta_y_local = delta_strafe - (delta_theta * strafe_center_offset);
 
         // --- 5. CONVERT LOCAL TO GLOBAL MOVEMENT (Rotation Matrix) ---
         double d_x_global = delta_x_local * std::cos(avg_theta) - delta_y_local * std::sin(avg_theta);
