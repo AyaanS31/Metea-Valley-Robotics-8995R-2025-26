@@ -1,23 +1,19 @@
 #include "main.h"
 #include <cmath>
 #include <vector>
+#include "odom.hpp"
 // Assume this includes the Drivetrain class definition
 #include "drivetrain.h" 
 #include "pros/adi.h"
 #include "pros/motors.h"
 
 // --- GLOBAL STATE & SENSORS ---
+Drivetrain* drivetrain = nullptr; // Global drivetrain pointer
+std::vector<double> global_position = {0.0, 0.0}; // X, Y position in inches
+double global_heading = 0.0; // Heading in radians
 
-// Define the global drivetrain pointer (must be initialized in initialize())
-Drivetrain* drivetrain = nullptr;
 
-// 1. Pose struct (Represents the robot's global position)
-struct Pose { 
-    double x = 0.0;     // X position (inches)
-    double y = 0.0;     // Y position (inches)
-    double theta = 0.0; // Orientation (radians)
-};
-Pose current_pos;
+Pose current_pos; // Global pose variable
 
 // 2. Sensor Definitions (ADI Encoders for Translation)
 // NOTE: Change these placeholder ports to match your hardware setup!
@@ -30,21 +26,7 @@ pros::Imu imu_sensor(7);
 // Other sensors (like distance)
 pros::Distance distance_sensor(8);
 
-// 3. Calibration Constants (CRITICAL FOR ACCURACY)
-const double TRACK_WIDTH = 12.5;         // Distance between left/right motor centers (in)
-const double STRAFE_CENTER_OFFSET = 3.0; // Distance from robot center to horizontal pod axle (in)
 
-// Conversion factors: (Wheel Diameter * PI) / Ticks Per Rev
-// Assuming ADI Encoders (360 ticks) and 2.75" wheels
-const double POD_TICK_TO_INCH = (2.75 * M_PI) / 360.0; 
-// Assuming V5 Motors set to report in DEGREES (360 degrees per rev) and 4" wheels
-const double MOTOR_TICK_TO_INCH = (4.0 * M_PI) / 360.0; 
-
-// Internal variables to hold sensor readings from the previous loop iteration
-double last_vertical_ticks = 0.0;
-double last_strafe_ticks = 0.0;
-double last_left_motor_pos = 0.0; 
-double last_right_motor_pos = 0.0; 
 /*
  * A callback function for LLEMU's center button.
  *
@@ -82,6 +64,8 @@ void initialize() {
 	pros::lcd::initialize();
 	pros::lcd::set_text(1, "Hello PROS User!");
 	imu_sensor.reset(); // Reset IMU at start 
+	drivetrain = new Drivetrain({1, 2, 3}, {-4, -5, -6});
+	pros::Task odom(odom_task);
 
 	pros::lcd::register_btn1_cb(on_center_button);
 }
@@ -150,7 +134,7 @@ void opcontrol() {
             drivetrain->tank_drive(left_speed, right_speed);
         }
 
-        // Display odometry position on the controller (optional)
+        // Display odometry position on the controller 
         master.set_text(0, 0, "X:" + std::to_string(int(current_pos.x)) + " Y:" + std::to_string(int(current_pos.y)));
 
         pros::delay(20);

@@ -76,6 +76,12 @@ void opcontrol(void);
  */
 #include <vector>
 
+struct Pose { 
+    double x = 0.0;
+    double y = 0.0;
+    double theta = 0.0;
+};
+
 // Forward-declare Drivetrain so other translation units can reference the global
 class Drivetrain;
 
@@ -87,4 +93,5 @@ extern double global_heading;
 extern pros::Imu imu_sensor;
 #endif
 
+// 1. Pose struct (Represents the robot's global position)
 #endif  // _PROS_MAIN_H_
