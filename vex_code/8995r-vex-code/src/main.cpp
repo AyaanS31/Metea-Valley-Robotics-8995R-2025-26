@@ -3,6 +3,7 @@
 #include <cmath>
 #include <vector>
 #include "odom.hpp"
+#include "exception.h"
 
 // Assume this includes the Drivetrain class definition
 #include "drivetrain.h" 
@@ -45,9 +46,9 @@ pros::Rotation rotation_sensor_2(17);
  * "I was pressed!" and nothing.
  */
 
-const double kP_linear = 0.75;   // Proportional gain for distance
+const double kP_linear = 2;   // Proportional gain for distance needs to go up!
 const double kI_linear = 0.0;  // Integral gain for distance
-const double kD_linear = 0.3;   // Derivative gain for distance
+const double kD_linear = 0.0;   // Derivative gain for distance
 
 const double kP_turn = 59.4;   // Proportional gain for turn
 const double kI_turn = 0.001;  // Integral gain for turn
@@ -65,7 +66,7 @@ double wrap_angle(double angle){
     // Wrap angle to [-π, π] 
     while(angle > M_PI) angle -= 2 * M_PI;
     while(angle < -M_PI) angle += 2 * M_PI;
-    return -1.0 * angle;
+    return angle;
 }
 
 double calculate_error(double target, double current){
@@ -74,7 +75,12 @@ double calculate_error(double target, double current){
 
 // Angular PID Function 
 void do_turn(double target_angle, double turn_timeout, double max_speed) {
-    if (!drivetrain) return;
+    if (!drivetrain) {
+        pros::lcd::print(0, "do_turn aborted: drivetrain null");
+        return;
+    }
+
+    try {
 
     // --- 1. INITIALIZATION AND ABSOLUTE TARGET CALCULATION ---
     
@@ -85,7 +91,9 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
     // Ensure the absolute target is wrapped for consistency, although the error calculation handles the wrap.
     double absolute_angle = wrap_angle(current_heading_rad + target_angle); 
 
-    double turn_error = target_angle; // Initial error is the target displacement
+    // Compute initial error based on current heading and the absolute target
+    double raw_error_init = absolute_angle - current_heading_rad;
+    double turn_error = wrap_angle(raw_error_init);
     double prev_turn_error = turn_error;
     double integral = 0.0;
     
@@ -97,8 +105,8 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
     // Loop until the safety timeout is reached OR the robot is settled
     while (loop_counter < turn_timeout && !is_settled) {
         
-        // A. Get Current Heading
-        current_heading_rad = (imu_sensor_right.get_rotation() + imu_sensor_left.get_rotation()) / 2.0 * M_PI / 180.0;
+    // A. Get Current Heading
+    current_heading_rad = (imu_sensor_right.get_rotation() + imu_sensor_left.get_rotation()) / 2.0 * M_PI / 180.0;
 
         // B. Error Calculation (using shortest path)
         // 1. Calculate raw difference
@@ -156,84 +164,118 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
         pros::lcd::print(0, "Heading: %f | Error (Deg): %f", current_heading_rad * 180.0 / M_PI, turn_error * 180.0 / M_PI);
         pros::delay(20); // 20 ms delay
     }
-
     // --- 3. FINAL STOP ---
     drivetrain->left_motors.move_velocity(0);
-    drivetrain->right_motors.move_velocity(0); 
+    drivetrain->right_motors.move_velocity(0);
+    } catch (const std::exception& e) {
+        // On any exception, attempt to stop drivetrain and show message
+        if (drivetrain) {
+            drivetrain->left_motors.move_velocity(0);
+            drivetrain->right_motors.move_velocity(0);
+        }
+        pros::lcd::print(0, "do_turn exception: %s", e.what());
+        return;
+    }
 }
 
 // Linear PID Function
 
  void linear_pid(double target_distance, double drive_timeout, double speed){
-    if (!drivetrain) return;
 
+    if(!drivetrain){
+        pros::lcd::print(0, "linear_pid aborted: drivetrain null");
+        return;
+    }
 
-    if(drivetrain){
+    try {
+        // Use motor group tare through drivetrain if available
+        drivetrain->left_motors.tare_position();
+        drivetrain->right_motors.tare_position();
+        pros::delay(50);
 
-        double currentPositionLeft = drivetrain->left_motors.get_position();
-        double currentPositionRight = drivetrain->right_motors.get_position();
-        double currentPosition = (currentPositionLeft + currentPositionRight)/2.0; // average of left and right positions
-
-        double absolute_target = currentPosition + target_distance; 
-        double distance_error = target_distance; // initial error
-        double prev_distance_error = distance_error; 
-        
-        double counter = 0.0;
+        double absolute_target = target_distance;
+        double distance_error = absolute_target; // initial error
+        double prev_distance_error = distance_error;
 
         double integral = 0.0;
         double integral_term = 0.0;
-        double derivative, linear_output;
+        double derivative = 0.0;
+        double linear_output = 0.0;
         double settle_timer = 0.0;
         bool is_settled = false;
 
-        while(counter < drive_timeout && !is_settled){
-            currentPositionLeft = drivetrain->left_motors.get_position();
-            currentPositionRight = drivetrain->right_motors.get_position();
-            currentPosition = (currentPositionLeft + currentPositionRight)/2.0; // average of left and right positions
+        // timing using pros::millis() for accurate dt
+        std::int32_t last_time = pros::millis();
+        double elapsed = 0.0;
 
-            distance_error = absolute_target - currentPosition; // distance needed to travel
-            // Proportional Term
+        // minimum command to overcome static friction (tweak as needed)
+        const double min_command = 10.0;
+
+        while (elapsed < drive_timeout && !is_settled) {
+            std::int32_t now = pros::millis();
+            double dt = (now - last_time) / 1000.0;
+            if (dt <= 0.0) dt = 0.02; // fallback
+            last_time = now;
+            elapsed += dt;
+
+            double currentPositionLeft = drivetrain->get_left_position() * motor_degree_to_inch;
+            double currentPositionRight = drivetrain->get_right_position() * motor_degree_to_inch;
+            double currentPosition = (currentPositionLeft + currentPositionRight) / 2.0; // average of left and right positions
+
+            distance_error = absolute_target - currentPosition;
+
+            // P term
             double proportional = kP_linear * distance_error;
 
-            // Integral Term
-            if(std::abs(distance_error) < linear_error_threshold){ // only accumulate integral when within 5 inches of target
-                integral += distance_error * 0.02; // assuming loop runs every 20 ms
-                // Clamp integral to prevent windup
-                if (integral > linear_integral_max) integral = linear_integral_max;
-                if (integral < -linear_integral_max) integral = -linear_integral_max;
-                integral_term = kI_linear * integral;
+            // I term with anti-windup
+            if (std::abs(distance_error) < linear_error_threshold * 2.0) {
+                integral += distance_error * dt;
             } else {
-                integral = 0.0; // reset integral if outside threshold
+                integral = 0.0;
             }
-            // Derivative Term
+            integral = std::clamp(integral, -linear_integral_max, linear_integral_max);
+            integral_term = kI_linear * integral;
 
-            derivative = (distance_error - prev_distance_error) / 0.02; // derivative term (rate of change)
+            // D term
+            derivative = (distance_error - prev_distance_error) / dt;
             double derivative_term = kD_linear * derivative;
 
-            // similar to angular PID, but for linear movement
             linear_output = proportional + integral_term + derivative_term;
-            if(linear_output > speed) linear_output = speed;
-            if(linear_output < -speed) linear_output = -speed;
 
-            drivetrain->tank_drive(linear_output, linear_output);
+            // Apply minimum command to overcome stiction
+            if (std::abs(linear_output) > 0 && std::abs(linear_output) < min_command) {
+                linear_output = std::copysign(min_command, linear_output);
+            }
+
+            // Clamp output to +/- speed
+            linear_output = std::clamp(linear_output, -speed, speed);
+
+            // Round before sending to tank_drive to avoid truncation deadzone
+            int cmd = (int)std::round(linear_output);
+            drivetrain->tank_drive(cmd, cmd);
 
             prev_distance_error = distance_error;
 
-            if(std::abs(distance_error) < linear_error_threshold){
-                settle_timer += 0.02;
+            if (std::abs(distance_error) < linear_error_threshold) {
+                settle_timer += dt;
             } else {
                 settle_timer = 0.0;
             }
-            if(settle_timer >= linear_settle_time){
-                is_settled = true; // robot has settled at target
+            if (settle_timer >= linear_settle_time) {
+                is_settled = true;
             }
-            pros::lcd::print(0, "current position: %f \n error: %f", currentPosition, distance_error);
-            counter += 0.02;
 
-            pros::delay(20); // 20 ms delay
+            pros::lcd::print(0, "pos: %f err: %f P:%f I:%f D:%f out:%f dt:%f", currentPosition, distance_error, proportional, integral_term, derivative_term, linear_output, dt);
+
+            pros::delay(20);
         }
+
+        drivetrain->tank_drive(0, 0);
+    } catch (const std::exception& e) {
+        if (drivetrain) drivetrain->tank_drive(0, 0);
+        pros::lcd::print(0, "linear_pid exception: %s", e.what());
+        return;
     }
-    drivetrain->tank_drive(0, 0); // stop the robot
 }
  
 
@@ -271,15 +313,30 @@ int deadband(int value, int threshold) {
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
+    try {
+        pros::lcd::initialize();
+        pros::lcd::set_text(1, "Hello PROS User!");
 
-	imu_sensor_right.reset(); // Reset IMU at start 
-    imu_sensor_left.reset();
-	drivetrain = new Drivetrain({-1, -2, 3}, {-8, 9, 10});
-	pros::Task odom(odom_task);
+        imu_sensor_right.reset(); // Reset IMU at start 
+        imu_sensor_left.reset();
+        while (imu_sensor_left.is_calibrating() || imu_sensor_right.is_calibrating()) {
+            pros::delay(50);
+        }
 
-	pros::lcd::register_btn1_cb(on_center_button);
+        // Construct drivetrain and start odometry task
+        drivetrain = new Drivetrain({-1, -2, 3}, {-8, 9, 10});
+        pros::Task odom(odom_task);
+
+        pros::lcd::register_btn1_cb(on_center_button);
+    } catch (const std::exception& e) {
+        pros::lcd::print(0, "initialize exception: %s", e.what());
+        // Try to stop any motors that may have been started
+        if (drivetrain) {
+            drivetrain->left_motors.move_velocity(0);
+            drivetrain->right_motors.move_velocity(0);
+        }
+        return;
+    }
 }
 
 /**
@@ -314,8 +371,14 @@ void competition_initialize() {}
 
 
 void autonomous() {
-    linear_pid(10, 3, 100); // Move forward 10 inches, 3 second timeout, max speed 100
-    pros::delay(1000);
+    try {
+        linear_pid(24, 3, 100); // Move forward 10 inches, 3 second timeout, max speed 100
+        pros::delay(1000);
+    } catch (const std::exception& e) {
+        pros::lcd::print(0, "autonomous exception: %s", e.what());
+        if (drivetrain) drivetrain->tank_drive(0, 0);
+        return;
+    }
 
 }
 
@@ -333,47 +396,57 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-    pros::Controller master(pros::E_CONTROLLER_MASTER);
-    const int DEADBAND_THRESHOLD = 5; // Analog values below 5 will be zeroed out
+    try {
+        pros::Controller master(pros::E_CONTROLLER_MASTER);
+        const int DEADBAND_THRESHOLD = 5; // Analog values below 5 will be zeroed out
 
-    while (true) {
-        // Read raw analog values
-        int left_y = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        int right_y = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+        while (true) {
+            // Read raw analog values
+            int left_y = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+            int right_y = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
 
-        // Apply deadband for smoother control
-        int left_speed = deadband(left_y, DEADBAND_THRESHOLD);
-        int right_speed = deadband(right_y, DEADBAND_THRESHOLD);
-        
-        if(drivetrain){
-            drivetrain->tank_drive(left_speed, right_speed);
+            // Apply deadband for smoother control
+            int left_speed = deadband(left_y, DEADBAND_THRESHOLD);
+            int right_speed = deadband(right_y, DEADBAND_THRESHOLD);
+            
+            if(drivetrain){
+                drivetrain->tank_drive(left_speed, right_speed);
+            }
+            // Tank Drive Control using the Drivetrain class method
+            if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){
+                pickup.move_velocity(200);
+            } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
+                pickup.move_velocity(200);
+                scoring.move_velocity(200);
+            } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
+                pickup.move_velocity(200);
+                scoring.move_velocity(-200);
+            } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
+                pickup.move_velocity(-200);
+                scoring.move_velocity(-200);
+            } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
+                basket.move_velocity(200);
+            } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
+                basket.move_velocity(-200);
+            } else {
+                basket.move_velocity(0);
+                pickup.move_velocity(0);
+                scoring.move_velocity(0);
+            }
+
+
+            // Display odometry position on the controller 
+            master.set_text(0, 0, "X:" + std::to_string(int(current_pos.x)) + " Y:" + std::to_string(int(current_pos.y)));
+
+            pros::delay(20);
         }
-        // Tank Drive Control using the Drivetrain class method
-        if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){
-            pickup.move_velocity(200);
-        } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
-            pickup.move_velocity(200);
-            scoring.move_velocity(200);
-        } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
-            pickup.move_velocity(200);
-            scoring.move_velocity(-200);
-        } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
-            pickup.move_velocity(-200);
-            scoring.move_velocity(-200);
-        } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
-            basket.move_velocity(200);
-        } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
-            basket.move_velocity(-200);
-        } else {
-            basket.move_velocity(0);
-            pickup.move_velocity(0);
-            scoring.move_velocity(0);
-        }
-
-
-        // Display odometry position on the controller 
-        master.set_text(0, 0, "X:" + std::to_string(int(current_pos.x)) + " Y:" + std::to_string(int(current_pos.y)));
-
-        pros::delay(20);
+    } catch (const std::exception& e) {
+        pros::lcd::print(0, "opcontrol exception: %s", e.what());
+        // attempt to stop actuators
+        if (drivetrain) drivetrain->tank_drive(0, 0);
+        basket.move_velocity(0);
+        pickup.move_velocity(0);
+        scoring.move_velocity(0);
+        return;
     }
 }

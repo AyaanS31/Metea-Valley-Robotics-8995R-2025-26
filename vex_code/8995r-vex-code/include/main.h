@@ -91,7 +91,8 @@ extern std::vector<double> global_position;
 extern double global_heading;
 extern Pose current_pos;
 // IMU defined in src/main.cpp
-extern pros::Imu imu_sensor;
+extern pros::Imu imu_sensor_right;
+extern pros::Imu imu_sensor_left; 
 #endif
 
 // 1. Pose struct (Represents the robot's global position)
