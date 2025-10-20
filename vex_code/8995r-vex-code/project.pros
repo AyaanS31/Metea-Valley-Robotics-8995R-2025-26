@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "8995r-vex-code",
+    "project_name": "no-auto",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -635,7 +635,8 @@
       }
     },
     "upload_options": {
-      "icon": "planet"
+      "icon": "pizza",
+      "slot": 8
     },
     "use_early_access": false
   }
