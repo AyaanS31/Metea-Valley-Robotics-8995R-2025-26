@@ -17,8 +17,6 @@ Pose current_pos; // Global pose variable
 
 
 // NOTE: Change these placeholder ports to match your hardware setup!
-// Vertical Pod (Forward/Backward movement)
-pros::Rotation rotation_sensor_vertical(14);
 // Horizontal Pod (Strafe/Sideways movement)
 pros::Rotation rotation_sensor_strafe(17);
 
@@ -34,9 +32,6 @@ pros::Motor basket(5);
 pros::Motor scoring(6);
 pros::Motor pickup(11);
 
-// Rotation Sensors 
-pros::Rotation rotation_sensor(14);
-pros::Rotation rotation_sensor_2(17);
 
 
 /*
@@ -79,11 +74,8 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
         pros::lcd::print(0, "do_turn aborted: drivetrain null");
         return;
     }
-
-    try {
-
     // --- 1. INITIALIZATION AND ABSOLUTE TARGET CALCULATION ---
-    
+
     // Get initial heading in radians
     double current_heading_rad = (imu_sensor_right.get_rotation() + imu_sensor_left.get_rotation()) / 2.0 * M_PI / 180.0;
     
@@ -167,15 +159,6 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
     // --- 3. FINAL STOP ---
     drivetrain->left_motors.move_velocity(0);
     drivetrain->right_motors.move_velocity(0);
-    } catch (const std::exception& e) {
-        // On any exception, attempt to stop drivetrain and show message
-        if (drivetrain) {
-            drivetrain->left_motors.move_velocity(0);
-            drivetrain->right_motors.move_velocity(0);
-        }
-        pros::lcd::print(0, "do_turn exception: %s", e.what());
-        return;
-    }
 }
 
 // Linear PID Function
@@ -187,11 +170,10 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
         return;
     }
 
-    try {
-        // Use motor group tare through drivetrain if available
-        drivetrain->left_motors.tare_position();
-        drivetrain->right_motors.tare_position();
-        pros::delay(50);
+    // Use motor group tare through drivetrain if available
+    drivetrain->left_motors.tare_position();
+    drivetrain->right_motors.tare_position();
+    pros::delay(50);
 
         double absolute_target = target_distance;
         double distance_error = absolute_target; // initial error
@@ -270,12 +252,6 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
             pros::delay(20);
         }
 
-        drivetrain->tank_drive(0, 0);
-    } catch (const std::exception& e) {
-        if (drivetrain) drivetrain->tank_drive(0, 0);
-        pros::lcd::print(0, "linear_pid exception: %s", e.what());
-        return;
-    }
 }
  
 
@@ -313,37 +289,20 @@ int deadband(int value, int threshold) {
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-    try {
-        pros::lcd::initialize();
-        pros::lcd::set_text(1, "Hello PROS User!");
+    pros::lcd::initialize();
+    pros::lcd::set_text(1, "Hello PROS User!");
 
-        imu_sensor_right.reset(); // Reset IMU at start 
-        imu_sensor_left.reset();
-        while (imu_sensor_left.is_calibrating() || imu_sensor_right.is_calibrating()) {
-            pros::delay(50);
-        }
+    imu_sensor_right.reset(); // Reset IMU at start 
+    imu_sensor_left.reset();
 
-        // Construct drivetrain and start odometry task
-        drivetrain = new Drivetrain({-1, -2, 3}, {-8, 9, 10});
-        pros::Task odom(odom_task);
+    // Construct drivetrain and start odometry task
+    drivetrain = new Drivetrain({-1, -2, 3}, {-8, 9, 10});
+    pros::Task odom(odom_task);
 
-        pros::lcd::register_btn1_cb(on_center_button);
-    } catch (const std::exception& e) {
-        pros::lcd::print(0, "initialize exception: %s", e.what());
-        // Try to stop any motors that may have been started
-        if (drivetrain) {
-            drivetrain->left_motors.move_velocity(0);
-            drivetrain->right_motors.move_velocity(0);
-        }
-        return;
-    }
+    pros::lcd::register_btn1_cb(on_center_button);
 }
-
-/**
- * Runs while the robot is in the disabled state of Field Management System or
- * the VEX Competition Switch, following either autonomous or opcontrol. When
- * the robot is enabled, this task will exit.
- */
+//  * the robot is enabled, this task will exit.
+//  */
 void disabled() {}
 
 /**
@@ -396,57 +355,53 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-    try {
-        pros::Controller master(pros::E_CONTROLLER_MASTER);
-        const int DEADBAND_THRESHOLD = 5; // Analog values below 5 will be zeroed out
+    pros::Controller master(pros::E_CONTROLLER_MASTER);
+    const int DEADBAND_THRESHOLD = 5; // Analog values below 5 will be zeroed out
 
-        while (true) {
-            // Read raw analog values
-            int left_y = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-            int right_y = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+    // Debug: indicate opcontrol started
+    pros::lcd::print(1, "opcontrol: started");
 
-            // Apply deadband for smoother control
-            int left_speed = deadband(left_y, DEADBAND_THRESHOLD);
-            int right_speed = deadband(right_y, DEADBAND_THRESHOLD);
+    while (true) {
+        // Read raw analog values
+        int left_y = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+        int right_y = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+
+        // Debug: show current analog values and whether drivetrain exists
+        pros::lcd::print(1, "L:%d R:%d DT:%d", left_y, right_y, drivetrain ? 1 : 0);
+
+        // Apply deadband for smoother control
+        int left_speed = deadband(left_y, DEADBAND_THRESHOLD);
+        int right_speed = deadband(right_y, DEADBAND_THRESHOLD);
             
-            if(drivetrain){
-                drivetrain->tank_drive(left_speed, right_speed);
-            }
-            // Tank Drive Control using the Drivetrain class method
-            if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){
-                pickup.move_velocity(200);
-            } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
-                pickup.move_velocity(200);
-                scoring.move_velocity(200);
-            } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
-                pickup.move_velocity(200);
-                scoring.move_velocity(-200);
-            } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
-                pickup.move_velocity(-200);
-                scoring.move_velocity(-200);
-            } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
-                basket.move_velocity(200);
-            } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
-                basket.move_velocity(-200);
-            } else {
-                basket.move_velocity(0);
-                pickup.move_velocity(0);
-                scoring.move_velocity(0);
-            }
+        if(drivetrain){
+            drivetrain->tank_drive(left_speed, right_speed);
+        }
+        // Tank Drive Control using the Drivetrain class method
+        if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){
+            pickup.move_velocity(200);
+        } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
+            pickup.move_velocity(200);
+            scoring.move_velocity(200);
+        } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
+            pickup.move_velocity(200);
+            scoring.move_velocity(-200);
+        } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
+            pickup.move_velocity(-200);
+            scoring.move_velocity(-200);
+        } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
+            basket.move_velocity(200);
+        } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
+            basket.move_velocity(-200);
+        } else {
+            basket.move_velocity(0);
+            pickup.move_velocity(0);
+            scoring.move_velocity(0);
+        }
 
 
             // Display odometry position on the controller 
-            master.set_text(0, 0, "X:" + std::to_string(int(current_pos.x)) + " Y:" + std::to_string(int(current_pos.y)));
+        master.set_text(0, 0, "X:" + std::to_string(int(current_pos.x)) + " Y:" + std::to_string(int(current_pos.y)));
 
-            pros::delay(20);
+        pros::delay(20);
         }
-    } catch (const std::exception& e) {
-        pros::lcd::print(0, "opcontrol exception: %s", e.what());
-        // attempt to stop actuators
-        if (drivetrain) drivetrain->tank_drive(0, 0);
-        basket.move_velocity(0);
-        pickup.move_velocity(0);
-        scoring.move_velocity(0);
-        return;
     }
-}
