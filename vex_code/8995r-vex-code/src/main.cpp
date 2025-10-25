@@ -4,23 +4,21 @@
 #include <vector>
 #include "odom.hpp"
 #include "exception.h"
+#include "pid.cpp"
 
 // Assume this includes the Drivetrain class definition
 #include "drivetrain.h" 
 #include "pros/adi.h"
+#include "pros/adi.hpp"
 #include "pros/motors.h"
 
 // --- GLOBAL STATE & SENSORS ---
 Drivetrain* drivetrain = nullptr; // Global drivetrain pointer
 
-Pose current_pos; // Global pose variable
-
-
 // NOTE: Change these placeholder ports to match your hardware setup!
-// Horizontal Pod (Strafe/Sideways movement)
-pros::Rotation rotation_sensor_strafe(17);
 
-// MOTOR CONSTANTS & PORTS
+// Pose current_pose;
+// MOTOR/PNEUMATICS DEFINITIONS
 
 // Inertial Sensors
 pros::Imu imu_sensor_left(4);
@@ -32,16 +30,15 @@ pros::Motor basket(5);
 pros::Motor scoring(6);
 pros::Motor pickup(11);
 
+// Horizontal Pod (Strafe/Sideways movement)
+pros::Rotation rotation_sensor_strafe(17);
 
+// Use the Pneumatics wrapper which provides extend/retract/toggle helpers
+pros::adi::Pneumatics piston('A', false);
+pros::adi::Pneumatics piston2('B', false);
 
-/*
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-
-const double kP_linear = 2;   // Proportional gain for distance needs to go up!
+// PID CONSTANTS
+const double kP_linear = 4.0;   // Proportional gain for distance needs to go up!
 const double kI_linear = 0.0;  // Integral gain for distance
 const double kD_linear = 0.0;   // Derivative gain for distance
 
@@ -68,7 +65,6 @@ double calculate_error(double target, double current){
     return target - current;
 }
 
-// Angular PID Function 
 void do_turn(double target_angle, double turn_timeout, double max_speed) {
     if (!drivetrain) {
         pros::lcd::print(0, "do_turn aborted: drivetrain null");
@@ -164,18 +160,17 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
 // Linear PID Function
 
  void linear_pid(double target_distance, double drive_timeout, double speed){
-
-    if(!drivetrain){
+    if (!drivetrain) {
         pros::lcd::print(0, "linear_pid aborted: drivetrain null");
         return;
     }
-
     // Use motor group tare through drivetrain if available
     drivetrain->left_motors.tare_position();
     drivetrain->right_motors.tare_position();
     pros::delay(50);
 
-        double absolute_target = target_distance;
+        double k = 0.15; // error constant for 3.25 inch wheels
+        double absolute_target = target_distance + (target_distance * k); // adjust target based on error constant
         double distance_error = absolute_target; // initial error
         double prev_distance_error = distance_error;
 
@@ -191,7 +186,7 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
         double elapsed = 0.0;
 
         // minimum command to overcome static friction (tweak as needed)
-        const double min_command = 10.0;
+        const double min_command = 8.0;
 
         while (elapsed < drive_timeout && !is_settled) {
             std::int32_t now = pros::millis();
@@ -232,9 +227,9 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
             // Clamp output to +/- speed
             linear_output = std::clamp(linear_output, -speed, speed);
 
-            // Round before sending to tank_drive to avoid truncation deadzone
+            // Round before sending to arcade_drive to avoid truncation deadzone
             int cmd = (int)std::round(linear_output);
-            drivetrain->tank_drive(cmd, cmd);
+            drivetrain->arcade_drive(cmd, cmd);
 
             prev_distance_error = distance_error;
 
@@ -251,17 +246,13 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
 
             pros::delay(20);
         }
-
-}
- 
-
-// odom 
-
-#include "odom.hpp"
-
-// ODOMETRY TASK IMPLEMENTATION (Corrected Fusion Logic)
-
-// 5.75inch strafe center ofset and 0.85 vertical offset
+            // Ensure motors are explicitly stopped when exiting the PID loop
+            // If we don't send a final zero command the motors will continue
+            // running at the last commanded speed.
+            drivetrain->arcade_drive(0, 0);
+            drivetrain->brake();
+            pros::delay(20);
+        }
 
 
 void on_center_button() {
@@ -297,9 +288,11 @@ void initialize() {
 
     // Construct drivetrain and start odometry task
     drivetrain = new Drivetrain({-1, -2, 3}, {-8, 9, 10});
-    pros::Task odom(odom_task);
 
     pros::lcd::register_btn1_cb(on_center_button);
+    // Ensure pistons start in a known, safe (retracted) state on startup
+    piston.retract();
+    piston2.retract();
 }
 //  * the robot is enabled, this task will exit.
 //  */
@@ -329,16 +322,20 @@ void competition_initialize() {}
  */
 
 
-void autonomous() {
-    try {
-        linear_pid(24, 3, 100); // Move forward 10 inches, 3 second timeout, max speed 100
-        pros::delay(1000);
-    } catch (const std::exception& e) {
-        pros::lcd::print(0, "autonomous exception: %s", e.what());
-        if (drivetrain) drivetrain->tank_drive(0, 0);
-        return;
-    }
+/*
+FOR AUTON: 
 
+--> Linear PID 
+--> Angular PID
+--> Odom 
+--> Motion Profiling Research 
+
+THEN CODE AUTONOMOUS ROUTINE. 
+
+*/
+
+void autonomous() {
+    linear_pid(12.0,10.0,127.0); // Drive forward 12 inches (timeout doubled to 10s for testing overshoot/oscillation)
 }
 
 /**
@@ -357,34 +354,41 @@ void autonomous() {
 void opcontrol() {
     pros::Controller master(pros::E_CONTROLLER_MASTER);
     const int DEADBAND_THRESHOLD = 5; // Analog values below 5 will be zeroed out
+    // Pneumatics: we'll control each piston independently using controller new-press events
 
-    // Debug: indicate opcontrol started
-    pros::lcd::print(1, "opcontrol: started");
 
     while (true) {
-        // Read raw analog values
-        int left_y = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        int right_y = master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
+        // Single-stick arcade drive control
+        // Left stick Y = forward/back, Left stick X = rotation
+        int raw_forward = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+        int raw_turn = master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_X);
 
-        // Debug: show current analog values and whether drivetrain exists
-        pros::lcd::print(1, "L:%d R:%d DT:%d", left_y, right_y, drivetrain ? 1 : 0);
+        // Apply deadband per-axis
+        int forward = deadband(raw_forward, DEADBAND_THRESHOLD);
+        int turn = deadband(raw_turn, DEADBAND_THRESHOLD);
 
-        // Apply deadband for smoother control
-        int left_speed = deadband(left_y, DEADBAND_THRESHOLD);
-        int right_speed = deadband(right_y, DEADBAND_THRESHOLD);
-            
-        if(drivetrain){
-            drivetrain->tank_drive(left_speed, right_speed);
+        // Combine forward and turn for left/right outputs
+        int left_speed = forward + turn;
+        int right_speed = forward - turn;
+
+        // Clamp to controller/motor expected range [-127, 127]
+        if (left_speed > 127) left_speed = 127;
+        if (left_speed < -127) left_speed = -127;
+        if (right_speed > 127) right_speed = 127;
+        if (right_speed < -127) right_speed = -127;
+
+        if (drivetrain) {
+            drivetrain->arcade_drive(left_speed, right_speed);
         }
-        // Tank Drive Control using the Drivetrain class method
+        // Arcade Drive Control using the Drivetrain class method
         if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){
-            pickup.move_velocity(200);
+            pickup.move_velocity(-200);
         } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
             pickup.move_velocity(200);
             scoring.move_velocity(200);
         } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
-            pickup.move_velocity(200);
-            scoring.move_velocity(-200);
+            pickup.move_velocity(-200);
+            scoring.move_velocity(200);
         } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
             pickup.move_velocity(-200);
             scoring.move_velocity(-200);
@@ -398,10 +402,16 @@ void opcontrol() {
             scoring.move_velocity(0);
         }
 
-
-            // Display odometry position on the controller 
-        master.set_text(0, 0, "X:" + std::to_string(int(current_pos.x)) + " Y:" + std::to_string(int(current_pos.y)));
+        // Independent piston toggles:
+        // - X: toggle piston on ADI port 'A'
+        // - Y: toggle piston on ADI port 'B'
+        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+            piston.toggle(); // Toggle piston state
+        }
+        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)) {
+            piston2.toggle(); // Toggle second piston state
+        }
 
         pros::delay(20);
-        }
     }
+}

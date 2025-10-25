@@ -15,7 +15,7 @@ public:
     Drivetrain(const std::vector<std::int8_t>& left_ports, const std::vector<std::int8_t>& right_ports);
 
     // Example methods you might want
-    void tank_drive(int left_speed, int right_speed);  // For opcontrol with controller
+    void arcade_drive(int left_speed, int right_speed);  // For opcontrol with controller
     void move_distance(double distance_degrees, int velocity);  // For autonomous (relative move)
     void brake();  // Stop all motors
     // Add more for odometry/PID integration later, e.g., get_positions()

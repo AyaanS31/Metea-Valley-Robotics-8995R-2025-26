@@ -1,15 +1,12 @@
 #include "drivetrain.h"
-#include "exception.h"
-#include <stdexcept>
 
 // 2. DEFINITION: The members are defined in the constructor
 
-Drivetrain::Drivetrain(const std::vector<std::int8_t>& left_ports, const std::vector<std::int8_t>& right_ports)
+Drivetrain::Drivetrain(const std::vector<std::int8_t>& left_ports, const std::vector<std::int8_t>& right_ports) 
     : left_motors(left_ports), right_motors(right_ports) {
-    // Basic validation: ensure both sides have at least one motor port
-}
 
-void Drivetrain::tank_drive(int left_speed, int right_speed) {
+    }
+void Drivetrain::arcade_drive(int left_speed, int right_speed) {
     left_motors.move(left_speed);
     right_motors.move(right_speed);
 }
