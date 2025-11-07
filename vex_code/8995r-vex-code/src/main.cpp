@@ -17,7 +17,7 @@ pros::Motor scoring(6);
 pros::Motor pickup(11);
 // tracking wheels
 // horizontal tracking wheel encoder. Rotation sensor, port 20, not reversed
-pros::Rotation horizontalEnc(17);
+pros::Rotation horizontalEnc(-17);
 // horizontal tracking wheel. 2.75" diameter, 5.75" offset, back of the robot (negative)
 lemlib::TrackingWheel horizontal(&horizontalEnc, 2, 0);
 
@@ -62,7 +62,7 @@ lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel
                             nullptr, // vertical tracking wheel 2, set to nullptr as we don't have a second one
                             &horizontal, // horizontal tracking wheel
                             nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
-                            &imu_sensor_left // inertial sensor
+                            &imu_sensor_right // inertial sensor
 );
 
 // input curve for throttle input during driver control
@@ -123,40 +123,67 @@ void disabled() {}
  */
 void competition_initialize() {}
 
-// get a path used for pure pursuit
-// this needs to be put outside a function
-ASSET(example_txt); // '.' replaced with "_" to make c++ happy
-
-/**
- * Runs during auto
- *
- * This is an example autonomous routine which demonstrates a lot of the features LemLib has to offer
- */
-
-
-void auton_skills(){
-
-}
-
 void autonomous() {
+    chassis.setPose(-47.699, 10.292, 70);
     piston.extend();
-    chassis.moveToPose(0,29,0,4000);
     pickup.move_velocity(-200);
     scoring.move_velocity(-200);
-    chassis.turnToHeading(83, 4000);
-    
-    chassis.moveToPose(18,34,83,4000);
-    pros::delay(1500);
-    pickup.move_velocity(75);
-    pros::delay(1000);
-    pickup.move_velocity(0);
+    chassis.moveToPoint(-31, 17, 700, {.maxSpeed = 90});
+    chassis.moveToPoint(-25, 21, 700, {.maxSpeed = 40});
+    chassis.moveToPoint(-21, 25, 500, {.maxSpeed = 50});
+    // chassis.moveToPoint(-18, 26, 1000);
+    // pros::delay(500); 
 
-    chassis.setPose(18,34,83);
-    chassis.moveToPose(3, 30, 93, 4000);
-    pros::delay(250);
-    chassis.turnToHeading(45, 4000);
-    chassis.setPose(3,30,45);
-    chassis.moveToPose(18, 22, 45, 4000);
+    chassis.turnToHeading(142, 600);
+    chassis.moveToPoint(-1, 12, 600, {.maxSpeed = 45});
+    pickup.move_velocity(25);
+    basket.move_velocity(-200);
+    pros::delay(800);
+    pickup.move_velocity(50);
+    pros::delay(500);
+    pickup.move_velocity(0);
+    chassis.moveToPoint(-21, 25, 500, { .forwards = false, .maxSpeed = 50, });
+    chassis.turnToHeading(187, 500);
+    pickup.move_velocity(-200);
+    chassis.moveToPoint(-15, -12, 1500, {.maxSpeed = 60, });
+    chassis.moveToPoint(-17, -20, 800, {.maxSpeed = 40, });
+
+    pickup.move_velocity(0);
+    scoring.move_velocity(0);
+    chassis.turnToHeading(70, 700);
+    chassis.moveToPoint(-8, -8, 700, {.maxSpeed = 50, });
+    chassis.turnToHeading(54, 500);
+
+    pros::delay(200);
+    piston.retract();
+    scoring.move_velocity(-200);
+    pros::delay(500);
+    piston.extend();
+
+    chassis.turnToHeading(-20, 600);
+
+    chassis.moveToPoint(-20, 47, 2400); 
+    chassis.turnToHeading(-80, 700);
+
+    piston2.toggle();
+    chassis.moveToPoint(-47, 47, 1500); 
+
+    // tune ts lowkey VVV
+
+    chassis.moveToPoint(-30, 47, 500, {.forwards = false}); 
+    piston2.toggle();
+    chassis.turnToHeading(90, 500);
+    chassis.moveToPoint(-15, 47, 700, {.forwards = true}); 
+    piston.retract();
+    scoring.move_velocity(-200);
+    pickup.move_velocity(-200);
+    basket.move_velocity(200);
+
+    // pros::delay(1500);
+    // chassis.turnToHeading(185, 4000); 
+    // pickup.move_velocity(-200);
+    // chassis.moveToPoint(-21.7, -14.511, 4000); 
+
 
 }
 
@@ -164,14 +191,17 @@ void autonomous() {
  * Runs in driver control
  */
 void opcontrol() {
+    const int DEADBAND_THRESHOLD = 3; 
     // controller
     // loop to continuously update motors
     while (true) {
         // get joystick positions
         int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
+        int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_X);
         // move the chassis with curvature drive
+
         chassis.arcade(leftY, rightX);
+
 
         // intake control 
         if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){

@@ -76,20 +76,10 @@ void opcontrol(void);
  */
 #include <vector>
 
-struct Pose { 
-    double x = 0.0;
-    double y = 0.0;
-    double theta = 0.0;
-};
+
 
 // Forward-declare Drivetrain so other translation units can reference the global
-class Drivetrain;
 
-// Shared globals defined in src/main.cpp
-extern Drivetrain* drivetrain;
-extern std::vector<double> global_position;
-extern double global_heading;
-extern Pose current_pos;
 // IMU defined in src/main.cpp
 extern pros::Imu imu_sensor_right;
 extern pros::Imu imu_sensor_left; 
