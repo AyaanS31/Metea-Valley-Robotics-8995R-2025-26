@@ -118,73 +118,104 @@ void initialize() {
  */
 void disabled() {}
 
+// auton skills code 
+
+// void autonomous_skills(){
+//     chassis.setPose(0, 0, 0);
+//     chassis.moveToPoint(0, 15, 700);
+//     chassis.turnToHeading(90, 1500);
+//     chassis.moveToPoint(-12, 15, 700, {.maxSpeed = 50}); 
+// }
+
+
 /**
  * runs after initialize if the robot is connected to field control
  */
 void competition_initialize() {}
+
+void auton_skills(){
+    chassis.setPose(0,0,0);
+    pickup.move_velocity(200);
+    leftMotors.move_velocity(127);
+    rightMotors.move_velocity(127); 
+    pros::delay(750);
+    leftMotors.move_velocity(0);
+    rightMotors.move_velocity(0);
+}
+
 
 void autonomous() {
     chassis.setPose(-47.699, 10.292, 70);
     piston.extend();
     pickup.move_velocity(-200);
     scoring.move_velocity(-200);
-    chassis.moveToPoint(-31, 17, 700, {.maxSpeed = 90});
+    chassis.moveToPoint(-31, 15, 700, {.maxSpeed = 90});
     chassis.moveToPoint(-25, 21, 700, {.maxSpeed = 40});
     chassis.moveToPoint(-21, 25, 500, {.maxSpeed = 50});
-    // chassis.moveToPoint(-18, 26, 1000);
+    chassis.moveToPoint(-15, 22, 800, {.maxSpeed = 50});
+    chassis.turnToHeading(135, 600);
+    chassis.moveToPoint(-48, 52, 3000, {.forwards = false});
     // pros::delay(500); 
 
-    chassis.turnToHeading(142, 600);
-    chassis.moveToPoint(-1, 12, 600, {.maxSpeed = 45});
-    pickup.move_velocity(25);
-    basket.move_velocity(-200);
-    pros::delay(800);
-    pickup.move_velocity(50);
-    pros::delay(500);
-    pickup.move_velocity(0);
-    chassis.moveToPoint(-21, 25, 500, { .forwards = false, .maxSpeed = 50, });
-    chassis.turnToHeading(187, 500);
-    pickup.move_velocity(-200);
-    chassis.moveToPoint(-15, -12, 1500, {.maxSpeed = 60, });
-    chassis.moveToPoint(-17, -20, 800, {.maxSpeed = 40, });
-
-    pickup.move_velocity(0);
-    scoring.move_velocity(0);
-    chassis.turnToHeading(70, 700);
-    chassis.moveToPoint(-8, -8, 700, {.maxSpeed = 50, });
-    chassis.turnToHeading(54, 500);
-
-    pros::delay(200);
-    piston.retract();
-    scoring.move_velocity(-200);
-    pros::delay(500);
-    piston.extend();
-
-    chassis.turnToHeading(-20, 600);
-
-    chassis.moveToPoint(-20, 47, 2400); 
-    chassis.turnToHeading(-80, 700);
-
-    piston2.toggle();
-    chassis.moveToPoint(-47, 47, 1500); 
-
-    // tune ts lowkey VVV
-
-    chassis.moveToPoint(-30, 47, 500, {.forwards = false}); 
-    piston2.toggle();
-    chassis.turnToHeading(90, 500);
-    chassis.moveToPoint(-15, 47, 700, {.forwards = true}); 
-    piston.retract();
-    scoring.move_velocity(-200);
-    pickup.move_velocity(-200);
+    // chassis.turnToHeading(142, 600);
+    chassis.moveToPoint(-24, 52, 2000, {.maxSpeed = 45});
+    pros::delay(2000);
     basket.move_velocity(200);
+    pickup.move_velocity(-200);
 
-    // pros::delay(1500);
-    // chassis.turnToHeading(185, 4000); 
+    scoring.move_velocity(-200);
+    piston.retract();
+    pros::delay(1500);
+    chassis.moveToPoint(-43, 52, 1000, {.forwards = false});
+    piston.extend();
+    chassis.moveToPoint(-24, 50, 1000, {.maxSpeed = 200}); 
+
+
+    // ------------------------------------------------------------
+    // chassis.turnToHeading(-90, 1000);
+    // piston2.toggle();
+    // piston.retract();
+    // chassis.moveToPoint(-69, 43, 800, {.forwards = true, .maxSpeed = 90});
+    // pros::delay(500);
+    // chassis.moveToPoint(-38, 52, 1000, {.forwards = false});
+    // pros::delay(500);
+    // piston2.toggle();
+    // chassis.turnToHeading(90, 800);
+    // chassis.moveToPoint(-24, 52, 1000, {.maxSpeed = 70});
+    // pros::delay(1200);
+    // basket.move_velocity(200);
     // pickup.move_velocity(-200);
-    // chassis.moveToPoint(-21.7, -14.511, 4000); 
+    // scoring.move_velocity(-200);
+    // piston.retract();
+    // pros::delay(1500);
+
+    
+    // pickup.move_velocity(25);
+    // basket.move_velocity(-200);
+    // pros::delay(800);
+    // pickup.move_velocity(50);
+    // pros::delay(500);
 
 
+    // chassis.turnToHeading(-50, 600);
+
+    // chassis.moveToPoint(-20, 47, 2400); 
+    // chassis.turnToHeading(-80, 700);
+
+    // piston2.toggle();
+    // chassis.moveToPoint(-47, 47, 1500); 
+
+    // // tune ts lowkey VVV
+
+    // chassis.moveToPoint(-30, 47, 500, {.forwards = false}); 
+    // piston2.toggle();
+    // chassis.turnToHeading(90, 500);
+    // chassis.moveToPoint(-15, 47, 700, {.forwards = true}); 
+    // piston.retract();
+    // scoring.move_velocity(-200);
+    // pickup.move_velocity(-200);
+    // basket.move_velocity(200);
+    
 }
 
 /**
