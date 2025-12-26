@@ -117,6 +117,16 @@ void initialize() {
  */
 void disabled() {}
 
+// auton skills code 
+
+// void autonomous_skills(){
+//     chassis.setPose(0, 0, 0);
+//     chassis.moveToPoint(0, 15, 700);
+//     chassis.turnToHeading(90, 1500);
+//     chassis.moveToPoint(-12, 15, 700, {.maxSpeed = 50}); 
+// }
+
+
 /**
  * runs after initialize if the robot is connected to field control
  */
@@ -256,7 +266,7 @@ void autonomous() {
 
     drive_to(-28.196, 47.64, 3000, -1.0);
     // outtake to long goal 
-}
+    }
 
 /**
  * Runs in driver control
