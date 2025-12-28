@@ -1,29 +1,42 @@
 #include "main.h"
 #include <cmath>
 
-// controller 67
+// controller 6767
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 // motor groups
-pros::MotorGroup left_mg({-1, -2, 3}); // left motor group - ports 3 (reversed), 4, 5 (reversed)
-pros::MotorGroup right_mg({-8, 9, 10}); // right motor group - ports 6, 7, 9 (reversed)
+pros::MotorGroup left_mg({-11, -13, -16}, pros::MotorGear::blue);
+pros::MotorGroup right_mg({10, 18, 19}, pros::MotorGearset::blue); 
 
-// Inertial Sensor on port 10
-pros::Imu imu_sensor_left(4);
-pros::Imu imu_sensor_right(7);
+pros::Imu imu_sensor(17);
+pros::Distance distance_sensor_back(4);
+pros::Distance distance_sensor_right(5);
 
-pros::Motor basket(5);
-pros::Motor scoring(6);
-pros::Motor pickup(11);
+pros::MotorGroup score({3,8,9});
+pros::MotorGroup hold({3,-8,9});
+pros::MotorGroup pre({9});
+
+pros::Motor intakePre(9);
+pros::Motor intakeMain(3);
+pros::Motor intakeHood(8);
+
+bool ArmUp = false;
+bool ArmDown = false;
+bool LoaderUp = false;
+bool WingUp = false;
+
+
 // tracking wheels
-// horizontal tracking wheel encoder. Rotation sensor, port 20, not reversed
-pros::Rotation horizontalEnc(-17);
+// horizontal tracking wheel encoder. Rotation sensor, port 14, not reversed
+pros::Rotation horizontalEnc(14);
 
-pros::adi::Pneumatics piston('A', false);
-pros::adi::Pneumatics piston2('B', false); 
+pros::ADIDigitalOut ArmUpAir('F', false);
+pros::ADIDigitalOut ArmDownAir('G', false);
+pros::ADIDigitalOut LoaderAir('H', false);
+pros::ADIDigitalOut WingAir('E', false);
 
 // PID constants
-double kP_linear = 0.5;
+double kP_linear = 10;
 double kI_linear = 0.0;    
 double kD_linear = 0.0;
 
@@ -60,7 +73,7 @@ void odometry_task() {
 
     while (true) {
         // 1. Update Heading (Radians)
-        global_heading = wrap_angle(  (imu_sensor_left.get_rotation() + imu_sensor_right.get_rotation()) / 2 * M_PI / 180.0);
+        global_heading = wrap_angle( (imu_sensor.get_rotation()) / 2 * M_PI / 180.0);
         
         // 2. Get current values
         // Forward position from drive encoders
@@ -97,12 +110,10 @@ void odometry_task() {
  */
 void initialize() {
     pros::lcd::initialize(); // initialize brain screen
-    imu_sensor_left.reset();
-    imu_sensor_right.reset();
+    imu_sensor.reset();
     pros::delay(1000); // wait for imu to calibrate
 
-    imu_sensor_left.set_heading(70); // set initial heading to 70 degrees
-    imu_sensor_right.set_heading(70);
+    imu_sensor.set_heading(70); // set initial heading to 70 degrees
 
     // set initial position and heading
     global_position[0] = -48.83; 
@@ -235,8 +246,7 @@ void auton_skills(){
     global_position[0] = -49.028; 
     global_position[1] = 14.705;    
     global_heading = 0; // --> 70 degrees in radians
-    imu_sensor_left.set_heading(0); // set initial heading to 0 degrees
-    imu_sensor_right.set_heading(0);
+    imu_sensor.set_heading(0); // set initial heading to 0 degrees
 
     // move to loader 
     drive_to(-48.83, 47.441, 3000, 1.0);
@@ -254,88 +264,112 @@ void auton_skills(){
 }
 
 void autonomous() {
-    // move to field balls 
-    drive_to(-26.411, 21.054, 3000, 1.0); 
-    turn_to((16*M_PI)/9, 2000);
+    global_position[0] = 0; 
+    global_position[1] = 0;    
+    global_heading = 0;
 
-    // move to loader 
-    drive_to(-48.632, 47.11, 3000, 1.0);
-    turn_to((3*M_PI)/2, 2000);
-    drive_to(-58.155, 46.714, 3000, 1.0);
-    // intake from loaders 
+    drive_to(12, 0, 2000, 1.0); 
 
-    drive_to(-28.196, 47.64, 3000, -1.0);
-    // outtake to long goal 
+    // // move to field balls 
+    // drive_to(-26.411, 21.054, 3000, 1.0); 
+    // turn_to((16*M_PI)/9, 2000);
+
+    // // move to loader 
+    // drive_to(-48.632, 47.11, 3000, 1.0);
+    // turn_to((3*M_PI)/2, 2000);
+    // drive_to(-58.155, 46.714, 3000, 1.0);
+    // // intake from loaders 
+
+    // drive_to(-28.196, 47.64, 3000, -1.0);
+    // // outtake to long goal 
     }
 
-/**
- * Runs in driver control
- */
+// Driver control sauce
 void opcontrol() {
-    const int DEADBAND_THRESHOLD = 3; 
-    // controller
-    // loop to continuously update motors
     while (true) {
-        double leftpower = 0;
-        double rightpower = 0;
-        // get joystick positions
-        int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-        int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_X);
-        // move the chassis with curvature drive
-        leftpower = leftY + rightX;
-        rightpower = leftY - rightX;
 
-        if (std::abs(leftpower) < 20) {
-            leftpower = 0;
-        }
-        if (std::abs(rightpower) < 20) {
-            rightpower = 0;
-        }
-            left_mg.move(leftpower);                          // Sets left motor voltage
-            right_mg.move(rightpower);  
+        //  // Arcade control scheme
+        int dir = controller.get_analog(ANALOG_LEFT_Y);    // Gets amount forward/backward from left joystick
+        int turn = controller.get_analog(ANALOG_LEFT_X);  // Gets the turn left/right from right joystick
+        left_mg.move(dir + turn);                      // Sets left motor voltage
+        right_mg.move(dir - turn);                     // Sets right motor voltage
 
-            // display position and heading on brain screen
-            pros::lcd::print(0, "X: %.2f in", global_position[0]);
-            pros::lcd::print(1, "Y: %.2f in", global_position[1]);
-            pros::lcd::print(2, "Heading: %.2f deg", global_heading * 180.0 / M_PI);
+        pros::delay(25);
 
-        // intake control 
-        if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){
-            pickup.move_velocity(-200);
-        }
-        else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
-            pickup.move_velocity(200);
-            scoring.move_velocity(200);
-        }
-        else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
-            pickup.move_velocity(-200);
-            scoring.move_velocity(200);
-        }
-        else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
-            pickup.move_velocity(-200);
-            scoring.move_velocity(-200);
-        }
-        else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
-            basket.move_velocity(200);
-        } 
-        else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
-            basket.move_velocity(-200);
-        } else{
-            basket.move_velocity(0);
-            scoring.move_velocity(0);
-            pickup.move_velocity(0);
-        }
+        pros::delay(20);
 
-        // pneumatics
-        if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)){
-            piston.toggle();
-        } 
 
-        if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)){
-            piston2.toggle();
+        if (controller.get_digital(DIGITAL_L1)) { // all running to score
+            score.move(127);
+
+        } else if (controller.get_digital(DIGITAL_R1)) { // all running to intake with hood store
+            hold.move(127);
+
+        } else if (controller.get_digital(DIGITAL_L2)) { // all running backward to outtake
+            score.move(-127);
+
+        } else if (controller.get_digital(DIGITAL_R2)) { // just the intake preroller running to intake
+            pre.move(127);
+
+        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)) { // intake down
+            if (ArmDown == false && ArmUp == false) { // from neutral state down
+                ArmDownAir.set_value(true);
+                pros::delay(20);
+                ArmDown = true;
+                WingAir.set_value(false);
+            } else if (ArmDown == false && ArmUp == true) { // from up position to down
+                ArmUpAir.set_value(false);
+                pros::delay(20);
+                ArmDownAir.set_value(true);
+                ArmUp = false;
+                ArmDown = true;
+                WingAir.set_value(false);
+            } else { // from down to neutral
+                ArmDownAir.set_value(ArmDown == false);
+                pros::delay(20);
+                ArmDown = false;
+            }
+        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT)) { // Intake Up
+            if (ArmUp == false && ArmDown == false) { // from neutral to up
+                ArmUpAir.set_value(true);
+                pros::delay(20);
+                ArmUp = true;
+            } else if (ArmDown == true && ArmUp == false) { // from down to up
+                ArmDownAir.set_value(false);
+                pros::delay(20);
+                ArmUpAir.set_value(true);
+                ArmUp = true;
+                ArmDown = false;
+            } else { // from up to neutral
+                ArmUpAir.set_value(ArmUp == false);
+                pros::delay(20);
+                ArmUp = false;
+            }
+        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)) { // toungue mech
+            if (LoaderUp == false) {
+                LoaderAir.set_value(true);
+                pros::delay(20);
+                LoaderUp = true;
+            } else {
+                LoaderAir.set_value(LoaderUp == false);
+                pros::delay(20);
+                LoaderUp = false;
+            }
+        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)) { // Wing mech
+            if (WingUp == false) {
+                WingAir.set_value(true);
+                pros::delay(20);
+                WingUp = true;
+            } else {
+                WingAir.set_value(WingUp == false);
+                pros::delay(20);
+                WingUp = false;
+            }
+        } else {
+            // default stop
+            intakePre.move(0);
+            intakeMain.move(0);
+            intakeHood.move(0);
         }
-        
-        // delay to save resources
-        pros::delay(10);
-    }
+        }
 }
