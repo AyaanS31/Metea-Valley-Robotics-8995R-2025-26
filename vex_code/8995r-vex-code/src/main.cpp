@@ -1,6 +1,7 @@
 #include "main.h"
 #include <cmath>
 
+
 // controller 6767
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
@@ -47,12 +48,19 @@ double kD_turn = 0.0;
 const float wheel_diameter = 3.25; // in inches
 const float wheel_circumference = wheel_diameter * M_PI; // in inches
 const float degreesPerInch = 360.0 / wheel_circumference; // degrees per inch of travel
+const float motor_degree_to_inch = 1.0 / degreesPerInch; // inches per degree of motor rotation
+const double linear_error_threshold = 2.0; // inches
+const double linear_settle_time = 3; // seconds
+const double linear_integral_max = 50.0; // max integral term to prevent windup
+
+const double angular_error_threshold = 1.0 * M_PI / 180.0; // radians (1 degree)
+const double ANGULAR_SETTLE_TIME = 0.3; // seconds
+const double angular_integral_max = 0.5; // max integral term to prevent wind
 
 float intake_speed; 
-
-// Global Variables
-std::vector<double> global_position {0,0}; // x, y in inches 
-float global_heading = 0; // in radians, facing east 
+// Global position variables
+std::vector<float> global_position = {0.0, 0.0}; // X, Y in inches
+float global_heading = 0.0; // in radians
 
  // Utility functions
 float wrap_angle(float angle) {
@@ -60,6 +68,8 @@ float wrap_angle(float angle) {
     while (angle < -M_PI) angle += 2 * M_PI;
     return 1 * angle;
 }
+
+
 float calculate_error(float target, float current) {
     return target - current;
 }
@@ -72,11 +82,13 @@ void odometry_task() {
     horizontalEnc.reset_position();
 
     while (true) {
-        // 1. Update Heading (Radians)
-        global_heading = wrap_angle( (imu_sensor.get_rotation()) / 2 * M_PI / 180.0);
+        // 1. Update Heading (Radians) using IMU heading (matches set_heading())
+        float heading_deg = (imu_sensor_left.get_heading() + imu_sensor_right.get_heading()) / 2.0f;
+        global_heading = wrap_angle(heading_deg * M_PI / 180.0f);
         
         // 2. Get current values
-        // Forward position from drive encoders
+        // Forward position from drive encoders (signed average)
+        // Using signed positions ensures turns don't falsely count as forward motion
         float currentForwardPos = (left_mg.get_position() + right_mg.get_position()) / 2.0;
         // Sideways position from the Rotation Sensor (convert centidegrees to degrees)
         float currentHorizontalPos = horizontalEnc.get_position() / 100.0;
@@ -101,7 +113,6 @@ void odometry_task() {
     }
 }
 
-
  /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
@@ -115,10 +126,7 @@ void initialize() {
 
     imu_sensor.set_heading(70); // set initial heading to 70 degrees
 
-    // set initial position and heading
-    global_position[0] = -48.83; 
-    global_position[1] = 10.803; 
-    global_heading = (7*M_PI)/18; // --> 70 degrees in radians 
+
 
     pros::Task odom_tracker(odometry_task);
 }
@@ -145,61 +153,93 @@ void competition_initialize() {}
 
 
 // PID CODE
-void drive_to(float target_x, float target_y, float timeout, float speed_mult){
-    float prev_dist_error = 0; 
-    float integral = 0;
-    int time_spent = 0;
+void linear_pid(double target_distance, double drive_timeout, double speed){
 
-    while(time_spent < timeout){
-        float current_x = global_position[0];
-        float current_y = global_position[1];
+    // Use motor group tare through drivetrain if available
+    left_mg.tare_position();
+    right_mg.tare_position();
+    pros::delay(50);
+        double k = 0.15; // error constant for 3.25 inch wheels
+        double absolute_target = target_distance + (target_distance * k); // adjust target based on error constant
+        double distance_error = absolute_target; // initial error
+        double prev_distance_error = distance_error;
 
-        float dist_error = sqrt(pow(target_x - current_x, 2) + pow(target_y - current_y, 2));
-        float target_angle = atan2(target_y - current_y, target_x - current_x);
-        
-        // --- NEW REVERSE LOGIC ---
-        if (speed_mult < 0) {
-            target_angle += M_PI; // Aim the back of the robot at the target
-        }
+        double integral = 0.0;
+        double integral_term = 0.0;
+        double derivative = 0.0;
+        double linear_output = 0.0;
+        double settle_timer = 0.0;
+        bool is_settled = false;
 
-        float angle_error = target_angle - global_heading;
+        // timing using pros::millis() for accurate dt
+        std::int32_t last_time = pros::millis();
+        double elapsed = 0.0;
 
-        while (angle_error > M_PI) angle_error -= 2 * M_PI;
-        while (angle_error < -M_PI) angle_error += 2 * M_PI;
-        // ----------------------------------------
+        // minimum command to overcome static friction (tweak as needed)
+        const double min_command = 8.0;
 
-        if(dist_error<3){
-            integral += dist_error;
-        } else{
-            integral = 0;
-        }
+        while (elapsed < drive_timeout && !is_settled) {
+            std::int32_t now = pros::millis();
+            double dt = (now - last_time) / 1000.0;
+            if (dt <= 0.0) dt = 0.02; // fallback
+            last_time = now;
+            elapsed += dt;
 
-        float integral_limit = 20.0; // Max power the integral can contribute
-        float integral_term = kI_linear * integral;
+            double currentPositionLeft = left_mg.get_position() * motor_degree_to_inch;
+            double currentPositionRight = right_mg.get_position() * motor_degree_to_inch;
+            double currentPosition = (currentPositionLeft + currentPositionRight) / 2.0; // average of left and right positions
 
-        // Constrain the integral term
-        if (integral_term > integral_limit) integral_term = integral_limit;
-        if (integral_term < -integral_limit) integral_term = -integral_limit;
+            distance_error = absolute_target - currentPosition;
 
+            // P term
+            double proportional = kP_linear * distance_error;
 
-        float derivative = dist_error - prev_dist_error; 
-        float output = kP_linear * dist_error + integral_term + kD_linear * derivative;
+            // I term with anti-windup
+            if (std::abs(distance_error) < linear_error_threshold * 2.0) {
+                integral += distance_error * dt;
+            } else {
+                integral = 0.0;
+            }
+            integral = std::clamp(integral, -linear_integral_max, linear_integral_max);
+            integral_term = kI_linear * integral;
 
-        float drift_correction = angle_error * 10.0; // delete this if it causes unncecessary issues or basically set it to 0 
+            // D term normalized by dt
+            derivative = (distance_error - prev_distance_error) / dt;
+            double derivative_term = kD_linear * derivative;
 
-        // Apply speed_mult (it will be negative for reverse)
-        left_mg.move((output * speed_mult) + drift_correction);
-        right_mg.move((output * speed_mult) - drift_correction);
+            linear_output = proportional + integral_term + derivative_term;
 
-        if (dist_error < 0.75) break; 
+            // Apply minimum command to overcome stiction
+            if (std::abs(linear_output) > 0 && std::abs(linear_output) < min_command) {
+                linear_output = std::copysign(min_command, linear_output);
+            }
 
+            // Clamp output to +/- speed
+            linear_output = std::clamp(linear_output, -speed, speed);
 
-        prev_dist_error = dist_error; 
-        time_spent += 20;
-        pros::delay(20);
-    }
-    left_mg.move(0);
-    right_mg.move(0);
+            // Round before sending to tank_drive to avoid truncation deadzone
+            // Round before sending to arcade_drive to avoid truncation deadzone
+            int cmd = (int)std::round(linear_output);
+            left_mg.move(cmd);
+            right_mg.move(cmd);
+
+            prev_distance_error = distance_error;
+
+            if (std::abs(distance_error) < linear_error_threshold) {
+                settle_timer += dt;
+            } else {
+                settle_timer = 0.0;
+            }
+            if (settle_timer >= linear_settle_time) {
+                is_settled = true;
+            }
+
+            pros::lcd::print(0, "pos: %f err: %f P:%f I:%f D:%f out:%f dt:%f", currentPosition, distance_error, proportional, integral_term, derivative_term, linear_output, dt);
+
+            pros::delay(20);
+            }
+    left_mg.brake();
+    right_mg.brake();
 }
 void turn_to(float target_angle, float timeout) {
     float prev_error = 0;
@@ -234,54 +274,20 @@ void turn_to(float target_angle, float timeout) {
     right_mg.brake();
 }
 
-void turn_to_point(float target_x, float target_y, float timeout) {
-    float angle = atan2(target_y - global_position[1], target_x - global_position[0]);
-    turn_to(angle, timeout);
-}
+
 
 // cordinates are based on path route from pathjerry.io 
 
 void auton_skills(){
-    // auton code skills here 
-    global_position[0] = -49.028; 
-    global_position[1] = 14.705;    
-    global_heading = 0; // --> 70 degrees in radians
-    imu_sensor.set_heading(0); // set initial heading to 0 degrees
-
-    // move to loader 
-    drive_to(-48.83, 47.441, 3000, 1.0);
-    turn_to((3*M_PI)/2, 2000);
-    drive_to(-59.345, 47.044, 3000, 1.0);
-    // intake from loaders
-    drive_to(-28.395, 46.846, 3000, -1.0);
-    // outtake to long goal
-
-    // move to other long goal 
-    drive_to(-37.72, 46.648, 3000, 1.0);
-    turn_to(M_PI, 2000);
-    drive_to(-37.323, -47.592, 4000, 1.0);
     
 }
 
 void autonomous() {
-    global_position[0] = 0; 
-    global_position[1] = 0;    
-    global_heading = 0;
+    // linear pid runs based on length in inches 
+    linear_pid(12, 5, 100); // move forward 12 inches
+    pros::delay(500);   
+    
 
-    drive_to(12, 0, 2000, 1.0); 
-
-    // // move to field balls 
-    // drive_to(-26.411, 21.054, 3000, 1.0); 
-    // turn_to((16*M_PI)/9, 2000);
-
-    // // move to loader 
-    // drive_to(-48.632, 47.11, 3000, 1.0);
-    // turn_to((3*M_PI)/2, 2000);
-    // drive_to(-58.155, 46.714, 3000, 1.0);
-    // // intake from loaders 
-
-    // drive_to(-28.196, 47.64, 3000, -1.0);
-    // // outtake to long goal 
     }
 
 // Driver control sauce
