@@ -83,7 +83,7 @@ void odometry_task() {
 
     while (true) {
         // 1. Update Heading (Radians) using IMU heading (matches set_heading())
-        float heading_deg = (imu_sensor_left.get_heading() + imu_sensor_right.get_heading()) / 2.0f;
+        float heading_deg = imu_sensor.get_heading();
         global_heading = wrap_angle(heading_deg * M_PI / 180.0f);
         
         // 2. Get current values
@@ -241,35 +241,89 @@ void linear_pid(double target_distance, double drive_timeout, double speed){
     left_mg.brake();
     right_mg.brake();
 }
-void turn_to(float target_angle, float timeout) {
-    float prev_error = 0;
-    float integral = 0;
-    int time_spent = 0;
+void do_turn(double target_angle, double turn_timeout, double max_speed) {
+    // --- 1. INITIALIZATION AND ABSOLUTE TARGET CALCULATION ---
 
-    while (time_spent < timeout) {
-        // 1. Calculate Error
-        float error = target_angle - global_heading;
+    // Get initial heading in radians
+    double current_heading_rad = imu_sensor_right.get_rotation() * M_PI / 180.0;
 
-        // 2. Wrap Angle (Shortest Path)
-        while (error > M_PI) error -= 2 * M_PI;
-        while (error < -M_PI) error += 2 * M_PI;
+    // Calculate the absolute angle the robot must reach.
+    // Ensure the absolute target is wrapped for consistency, although the error calculation handles the wrap.
+    double absolute_angle = wrap_angle(current_heading_rad + target_angle); 
 
-        // 3. PID Math
-        float derivative = error - prev_error;
-        integral += error;
-        float output = (kP_turn * error) + (kI_turn * integral) + (kD_turn * derivative);
+    // Compute initial error based on current heading and the absolute target
+    double raw_error_init = absolute_angle - current_heading_rad;
+    double turn_error = wrap_angle(raw_error_init);
+    double prev_turn_error = turn_error;
+    double integral = 0.0;
 
-        // 4. Motor Output (One side forward, one side back)
-        left_mg.move(output);
-        right_mg.move(-output);
+    double loop_counter = 0.0;
+    double settle_timer = 0.0;
+    bool is_settled = false;
 
-        // 5. Exit Condition
-        if (std::abs(error) < (1.0 * M_PI / 180.0)) break; // Stop if within 1 degree
+    // --- 2. PID CONTROL LOOP ---
+    // Loop until the safety timeout is reached OR the robot is settled
+    while (loop_counter < turn_timeout && !is_settled) {
+        // A. Update Current Heading
+        current_heading_rad = imu_sensor_right.get_rotation() * M_PI / 180.0;
 
-        prev_error = error;
-        time_spent += 20;
-        pros::delay(20);
+        // B. Error Calculation (using shortest path)
+        // 1. Calculate raw difference
+        double raw_error = absolute_angle - current_heading_rad;
+        // 2. Wrap the error to [-pi, pi] to ensure shortest turn
+        turn_error = wrap_angle(raw_error); 
+
+        // C. PID Term Calculations
+
+        // P - Proportional Term
+        double proportional = kP_turn * turn_error;
+
+        // I - Integral Term (with windup prevention)
+        // Only integrate when error is small enough AND output isn't maxed out (for better anti-windup)
+        if (std::abs(turn_error) < angular_error_threshold * 2.0) { 
+            integral += turn_error * 0.02; // Assuming loop runs every 20 ms
+        } else {
+            integral = 0.0; // Reset if far from target
+        }
+        // Clamp the integral value
+        if (integral > angular_integral_max) integral = angular_integral_max;
+        if (integral < -angular_integral_max) integral = -angular_integral_max;
+        double integral_term = kI_turn * integral;
+
+        // D - Derivative Term (Time-Corrected)
+        // The error used here must be the wrapped error!
+        double derivative = (turn_error - prev_turn_error) / 0.02;
+        double derivative_term = kD_turn * derivative;
+
+        // Combine Terms and Clamp Output Speed
+        double turn_output = proportional + integral_term + derivative_term;
+
+        // Speed Clamp
+        if (turn_output > max_speed) turn_output = max_speed;
+        if (turn_output < -max_speed) turn_output = -max_speed;
+
+        // Apply power (Left motor must be negative/opposite for turn)
+        left_mg.move_velocity(-turn_output);
+        right_mg.move_velocity(turn_output);
+
+        // D. Update Tracking and Telemetry
+        prev_turn_error = turn_error;
+        loop_counter += 0.02; // Increment loop counter (assuming 20 ms loop)
+
+        // E. Settling/Termination Condition
+        if (std::abs(turn_error) < angular_error_threshold) {
+            settle_timer += 0.02;
+        } else {
+            settle_timer = 0.0; // Reset timer if error is too large
+        }
+        if (settle_timer >= ANGULAR_SETTLE_TIME) {
+            is_settled = true; // Exit loop after settling
+        }
+
+        pros::lcd::print(0, "Heading: %f | Error (Deg): %f", current_heading_rad * 180.0 / M_PI, turn_error * 180.0 / M_PI);
+        pros::delay(20); // 20 ms delay
     }
+    // --- 3. FINAL STOP ---
     left_mg.brake();
     right_mg.brake();
 }
@@ -286,7 +340,7 @@ void autonomous() {
     // linear pid runs based on length in inches 
     linear_pid(12, 5, 100); // move forward 12 inches
     pros::delay(500);   
-    
+
 
     }
 
