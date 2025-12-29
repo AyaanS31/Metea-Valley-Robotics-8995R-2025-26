@@ -36,12 +36,11 @@ pros::ADIDigitalOut ArmDownAir('G', false);
 pros::ADIDigitalOut LoaderAir('H', false);
 pros::ADIDigitalOut WingAir('E', false);
 
-// PID constants
-double kP_linear = 10;
-double kI_linear = 0.0;    
-double kD_linear = 0.0;
+double kP_linear = 22;
+double kI_linear = 0.3;    
+double kD_linear = 2;
 
-double kP_turn = 2.0;
+double kP_turn = 1;
 double kI_turn = 0.0;
 double kD_turn = 0.0;
 
@@ -241,79 +240,99 @@ void linear_pid(double target_distance, double drive_timeout, double speed){
     left_mg.brake();
     right_mg.brake();
 }
-void do_turn(double target_angle, double turn_timeout, double max_speed) {
-    double current_heading = imu_sensor.get_rotation(); 
-    double absolute_target = wrap_angle(current_heading + target_angle); 
 
-    double turn_error = wrap_angle(absolute_target - current_heading);
+
+
+
+
+
+
+
+
+
+
+void do_turn(double target_angle, double turn_timeout, double max_speed) {
+    double start_heading = wrap_angle(imu_sensor.get_rotation()); 
+    double turn_error = target_angle; // initial error = target relative to start
     double prev_turn_error = turn_error;
     double integral = 0.0;
 
-    double loop_counter = 0.0;
     double settle_timer = 0.0;
     bool is_settled = false;
 
-    // --- 1. PID CONTROL LOOP ---
-    while (loop_counter < turn_timeout && !is_settled) {
-        current_heading = imu_sensor.get_rotation();
+    std::int32_t last_time = pros::millis();
+    double elapsed = 0.0;
 
-        // Error calculation using the updated degree-based wrap_angle
-        turn_error = wrap_angle(absolute_target - current_heading); 
+    while (elapsed < turn_timeout && !is_settled) {
+        std::int32_t now = pros::millis();
+        double dt = (now - last_time) / 1000.0;
+        if (dt <= 0.0) dt = 0.02;
+        last_time = now;
+        elapsed += dt;
 
-        // P - Proportional (Target range 2.0 - 5.0)
+        double current_heading = wrap_angle(imu_sensor.get_rotation());
+        turn_error = wrap_angle(target_angle - (current_heading - start_heading));
+
+        // Deadzone to prevent vibration
+        if (std::abs(turn_error) < 0.3) turn_error = 0.0;
+
+        // PID terms
         double proportional = kP_turn * turn_error;
 
-        // I - Integral (Threshold now 3 degrees)
-        if (std::abs(turn_error) < 3.0) { 
-            integral += turn_error * 0.02;
-        } else {
-            integral = 0.0; 
-        }
-        
-        // Clamp integral to prevent huge spikes
+        if (std::abs(turn_error) < 3.0) integral += turn_error * dt;
+        else integral = 0.0;
         integral = std::clamp(integral, -20.0, 20.0);
         double integral_term = kI_turn * integral;
 
-        // D - Derivative (Increase this to stop the "crazy oscillation")
-        double derivative = (turn_error - prev_turn_error) / 0.02;
+        double derivative = (turn_error - prev_turn_error) / dt;
         double derivative_term = kD_turn * derivative;
 
         double turn_output = proportional + integral_term + derivative_term;
 
-        // Minimum Voltage to overcome friction (Stiction)
-        // If error > 0.5 degrees but output is too weak to move, boost to 12
-        if (std::abs(turn_output) < 12 && std::abs(turn_error) > 0.5) {
-            turn_output = std::copysign(12, turn_output);
-        }
-
-        // Speed Clamp (max_speed should be around 100-127)
+        // Clamp output
         turn_output = std::clamp(turn_output, -max_speed, max_speed);
 
-        // Apply power
-        left_mg.move(-turn_output);
-        right_mg.move(turn_output);
+        left_mg.move(turn_output);
+        right_mg.move(-turn_output);
 
         prev_turn_error = turn_error;
-        loop_counter += 0.02;
 
-        // Settling Condition (Check if error is within 1 degree)
-        if (std::abs(turn_error) < 1.0) {
-            settle_timer += 0.02;
-        } else {
-            settle_timer = 0.0;
-        }
+        if (std::abs(turn_error) < 1.0) settle_timer += dt;
+        else settle_timer = 0.0;
 
-        if (settle_timer >= ANGULAR_SETTLE_TIME) {
-            is_settled = true; 
-        }
+        if (settle_timer >= ANGULAR_SETTLE_TIME) is_settled = true;
 
         pros::lcd::print(0, "Heading: %f | Error: %f", current_heading, turn_error);
-        pros::delay(20); 
+        pros::delay(20);
     }
-    
+
     left_mg.brake();
     right_mg.brake();
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // cordinates are based on path route from pathjerry.io 
@@ -323,8 +342,7 @@ void auton_skills(){
 }
 
 void autonomous() {
-    // linear pid runs based on length in inches 
-    linear_pid(12, 5, 100); // move forward 12 inches
+    do_turn(90, 100, 127); 
     pros::delay(500);   
 
 
