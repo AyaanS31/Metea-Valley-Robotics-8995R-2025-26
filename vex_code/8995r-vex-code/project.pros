@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "insane goon",
+    "project_name": "im autoning it",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -636,7 +636,7 @@
     },
     "upload_options": {
       "icon": "X",
-      "slot": 4
+      "slot": 1
     },
     "use_early_access": false
   }

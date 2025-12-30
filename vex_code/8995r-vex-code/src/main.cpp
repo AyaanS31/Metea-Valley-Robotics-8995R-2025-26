@@ -40,9 +40,9 @@ double kP_linear = 22;
 double kI_linear = 0.3;    
 double kD_linear = 2;
 
-double kP_turn = 1;
-double kI_turn = 0.0;
-double kD_turn = 0.0;
+double kP_turn = 5;
+double kI_turn = 0.125;
+double kD_turn = .32;
 
 const float wheel_diameter = 3.25; // in inches
 const float wheel_circumference = wheel_diameter * M_PI; // in inches
@@ -86,7 +86,7 @@ void odometry_task() {
         global_heading = wrap_angle(heading_deg * M_PI / 180.0f);
         
         // 2. Get current values
-        // Forward position from drive encoders (signed average)
+        // Forward position from drive encoders
         // Using signed positions ensures turns don't falsely count as forward motion
         float currentForwardPos = (left_mg.get_position() + right_mg.get_position()) / 2.0;
         // Sideways position from the Rotation Sensor (convert centidegrees to degrees)
@@ -107,6 +107,8 @@ void odometry_task() {
         // 5. Update Global Position
         global_position[0] += deltaX;
         global_position[1] += deltaY;
+
+        
         
         pros::delay(10); 
     }
@@ -123,132 +125,112 @@ void initialize() {
     imu_sensor.reset();
     pros::delay(1000); // wait for imu to calibrate
 
-    imu_sensor.set_heading(70); // set initial heading to 70 degrees
+    imu_sensor.set_heading(0); // set initial heading to 70 degrees
 
 
+    pros::Task screen_task([](){
+        while(true){
+            pros::lcd::print(0, "X: %.2f", left_mg.get_position()); 
+            pros::lcd::print(1, "Y: %.2f", right_mg.get_position()); 
+            pros::delay(100);
+        };
+    });
 
-    pros::Task odom_tracker(odometry_task);
 }
 
-/**
- * Runs while the robot is disabled
- */
 void disabled() {}
 
-// auton skills code 
-
-// void autonomous_skills(){
-//     chassis.setPose(0, 0, 0);
-//     chassis.moveToPoint(0, 15, 700);
-//     chassis.turnToHeading(90, 1500);
-//     chassis.moveToPoint(-12, 15, 700, {.maxSpeed = 50}); 
-// }
-
-
-/**
- * runs after initialize if the robot is connected to field control
- */
 void competition_initialize() {}
 
 
 // PID CODE
-void linear_pid(double target_distance, double drive_timeout, double speed){
+void linear_pid(double target_distance, double drive_timeout, double speed, bool backward = false) {
+    // Negate target distance if driving backward
+    if (backward) target_distance = -target_distance;
 
-    // Use motor group tare through drivetrain if available
+    // Tare motors
     left_mg.tare_position();
     right_mg.tare_position();
     pros::delay(50);
-        double k = 0.15; // error constant for 3.25 inch wheels
-        double absolute_target = target_distance + (target_distance * k); // adjust target based on error constant
-        double distance_error = absolute_target; // initial error
-        double prev_distance_error = distance_error;
 
-        double integral = 0.0;
-        double integral_term = 0.0;
-        double derivative = 0.0;
-        double linear_output = 0.0;
-        double settle_timer = 0.0;
-        bool is_settled = false;
+    double k = 0.15; // error constant for 3.25 inch wheels
+    double absolute_target = target_distance + (target_distance * k); // adjust target based on error constant
+    double distance_error = absolute_target; // initial error
+    double prev_distance_error = distance_error;
 
-        // timing using pros::millis() for accurate dt
-        std::int32_t last_time = pros::millis();
-        double elapsed = 0.0;
+    double integral = 0.0;
+    double integral_term = 0.0;
+    double derivative = 0.0;
+    double linear_output = 0.0;
+    double settle_timer = 0.0;
+    bool is_settled = false;
 
-        // minimum command to overcome static friction (tweak as needed)
-        const double min_command = 8.0;
+    std::int32_t last_time = pros::millis();
+    double elapsed = 0.0;
 
-        while (elapsed < drive_timeout && !is_settled) {
-            std::int32_t now = pros::millis();
-            double dt = (now - last_time) / 1000.0;
-            if (dt <= 0.0) dt = 0.02; // fallback
-            last_time = now;
-            elapsed += dt;
+    const double min_command = 8.0; // stiction
 
-            double currentPositionLeft = left_mg.get_position() * motor_degree_to_inch;
-            double currentPositionRight = right_mg.get_position() * motor_degree_to_inch;
-            double currentPosition = (currentPositionLeft + currentPositionRight) / 2.0; // average of left and right positions
+    while (elapsed < drive_timeout && !is_settled) {
+        std::int32_t now = pros::millis();
+        double dt = (now - last_time) / 1000.0;
+        if (dt <= 0.0) dt = 0.02;
+        last_time = now;
+        elapsed += dt;
 
-            distance_error = absolute_target - currentPosition;
+        double currentPositionLeft = left_mg.get_position() * motor_degree_to_inch;
+        double currentPositionRight = right_mg.get_position() * motor_degree_to_inch;
+        double currentPosition = (currentPositionLeft + currentPositionRight) / 2.0;
 
-            // P term
-            double proportional = kP_linear * distance_error;
+        distance_error = absolute_target - currentPosition;
 
-            // I term with anti-windup
-            if (std::abs(distance_error) < linear_error_threshold * 2.0) {
-                integral += distance_error * dt;
-            } else {
-                integral = 0.0;
-            }
-            integral = std::clamp(integral, -linear_integral_max, linear_integral_max);
-            integral_term = kI_linear * integral;
+        // PID
+        double proportional = kP_linear * distance_error;
 
-            // D term normalized by dt
-            derivative = (distance_error - prev_distance_error) / dt;
-            double derivative_term = kD_linear * derivative;
+        if (std::abs(distance_error) < linear_error_threshold * 2.0) {
+            integral += distance_error * dt;
+        } else {
+            integral = 0.0;
+        }
+        integral = std::clamp(integral, -linear_integral_max, linear_integral_max);
+        integral_term = kI_linear * integral;
 
-            linear_output = proportional + integral_term + derivative_term;
+        derivative = (distance_error - prev_distance_error) / dt;
+        double derivative_term = kD_linear * derivative;
 
-            // Apply minimum command to overcome stiction
-            if (std::abs(linear_output) > 0 && std::abs(linear_output) < min_command) {
-                linear_output = std::copysign(min_command, linear_output);
-            }
+        linear_output = proportional + integral_term + derivative_term;
 
-            // Clamp output to +/- speed
-            linear_output = std::clamp(linear_output, -speed, speed);
+        // Stiction
+        if (std::abs(linear_output) > 0 && std::abs(linear_output) < min_command) {
+            linear_output = std::copysign(min_command, linear_output);
+        }
 
-            // Round before sending to tank_drive to avoid truncation deadzone
-            // Round before sending to arcade_drive to avoid truncation deadzone
-            int cmd = (int)std::round(linear_output);
-            left_mg.move(cmd);
-            right_mg.move(cmd);
+        // Clamp to speed
+        linear_output = std::clamp(linear_output, -speed, speed);
 
-            prev_distance_error = distance_error;
+        int cmd = (int)std::round(linear_output);
+        left_mg.move(cmd);
+        right_mg.move(cmd);
 
-            if (std::abs(distance_error) < linear_error_threshold) {
-                settle_timer += dt;
-            } else {
-                settle_timer = 0.0;
-            }
-            if (settle_timer >= linear_settle_time) {
-                is_settled = true;
-            }
+        prev_distance_error = distance_error;
 
-            pros::lcd::print(0, "pos: %f err: %f P:%f I:%f D:%f out:%f dt:%f", currentPosition, distance_error, proportional, integral_term, derivative_term, linear_output, dt);
+        // Settling
+        if (std::abs(distance_error) < linear_error_threshold) {
+            settle_timer += dt;
+        } else {
+            settle_timer = 0.0;
+        }
+        if (settle_timer >= linear_settle_time) {
+            is_settled = true;
+        }
 
-            pros::delay(20);
-            }
+        pros::lcd::print(0, "pos: %f err: %f P:%f I:%f D:%f out:%f dt:%f", currentPosition, distance_error, proportional, integral_term, derivative_term, linear_output, dt);
+
+        pros::delay(20);
+    }
+
     left_mg.brake();
     right_mg.brake();
 }
-
-
-
-
-
-
-
-
-
 
 
 void do_turn(double target_angle, double turn_timeout, double max_speed) {
@@ -310,40 +292,150 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
     right_mg.brake();
 }
 
+void do_turn_global(double target_global_heading_deg, double turn_timeout, double max_speed) {
+    // Convert target to radians if your global_heading is in radians
+    // Otherwise keep degrees
+    double target_heading = wrap_angle(target_global_heading_deg); // degrees
 
+    double current_heading = wrap_angle(imu_sensor.get_heading()); // degrees
+    double turn_error = wrap_angle(target_heading - current_heading);
+    double prev_turn_error = turn_error;
+    double integral = 0.0;
 
+    double settle_timer = 0.0;
+    bool is_settled = false;
 
+    std::int32_t last_time = pros::millis();
+    double elapsed = 0.0;
 
+    while (elapsed < turn_timeout && !is_settled) {
+        std::int32_t now = pros::millis();
+        double dt = (now - last_time) / 1000.0;
+        if (dt <= 0.0) dt = 0.02;
+        last_time = now;
+        elapsed += dt;
 
+        current_heading = wrap_angle(imu_sensor.get_heading()); // read current heading
+        turn_error = wrap_angle(target_heading - current_heading); // shortest-path error
 
+        // Deadzone to prevent vibration
+        if (std::abs(turn_error) < 0.3) turn_error = 0.0;
 
+        // PID terms
+        double proportional = kP_turn * turn_error;
 
+        if (std::abs(turn_error) < 3.0) integral += turn_error * dt;
+        else integral = 0.0;
+        integral = std::clamp(integral, -20.0, 20.0);
+        double integral_term = kI_turn * integral;
 
+        double derivative = (turn_error - prev_turn_error) / dt;
+        double derivative_term = kD_turn * derivative;
 
+        double turn_output = proportional + integral_term + derivative_term;
 
+        // Clamp output
+        turn_output = std::clamp(turn_output, -max_speed, max_speed);
 
+        left_mg.move(turn_output);
+        right_mg.move(-turn_output);
 
+        prev_turn_error = turn_error;
 
+        if (std::abs(turn_error) < 1.0) settle_timer += dt;
+        else settle_timer = 0.0;
 
+        if (settle_timer >= ANGULAR_SETTLE_TIME) is_settled = true;
 
+        pros::lcd::print(0, "Heading: %f | Error: %f", current_heading, turn_error);
+        pros::delay(20);
+    }
 
-
-
-
-
-
+    left_mg.brake();
+    right_mg.brake();
+}
 
 
 
 // cordinates are based on path route from pathjerry.io 
 
-void auton_skills(){
-    
+void auton_skills() {}
+
+void elims(){
+    hold.move(127);
+    linear_pid(24, 1.0, 127, false);
+    LoaderAir.set_value(true);
+    LoaderUp = true; 
+    pros::delay(500);
+    do_turn_global(45, 0.9, 127);
+    LoaderAir.set_value(false);
+    LoaderUp = false; 
+    linear_pid(20, 0.6, 127, false);
+    hold.move(-127);
+    pros::delay(300);
+    linear_pid(48, 0.9, 127, true);
+    do_turn_global(-90, 0.8, 127);
+    LoaderAir.set_value(true);
+    LoaderUp = true; 
+    hold.move(127); 
+    linear_pid(8, 0.8, 127, false);
+    pros::delay(500);
+    ArmUpAir.set_value(true);
+    ArmUp = true; 
+    linear_pid(22, 0.9, 127, true);
+    score.move(127);
 }
 
 void autonomous() {
-    do_turn(90, 100, 127); 
-    pros::delay(500);   
+    
+    hold.move(127);
+    linear_pid(12, 0.67, 127, false); // in, sec, 127, backwards
+    linear_pid(48.2, 1.0, 127, true);
+    do_turn_global(-90, 1.1, 127); // deg, sec, 127
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    ArmUpAir.set_value(true);
+    ArmUp = true;
+    pros::delay(500);
+    linear_pid(11, 0.5, 80, false);
+    linear_pid(7, 0.25, 30, false);
+    do_turn(2.5, 0.5, 127);
+    linear_pid(30, 0.8, 60, true);
+    do_turn_global(-90, 0.3, 127);
+    linear_pid(8, 0.3, 60, true);
+    hold.move(0);
+    score.move(127);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    pros::delay(950);
+
+    do_turn_global(5, 0.8, 127); // deg, sec, 127
+    score.move(0);
+    hold.move(127);
+    linear_pid(49, 1.0, 127, false);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    ArmUpAir.set_value(false);
+    ArmUp = false;
+    linear_pid(10, 0.8, 127, false);
+    do_turn_global(-45, 1, 127); 
+    linear_pid(14, 0.65, 60, true);
+    hold.move(0);
+    score.move(127);
+    pros::delay(300);
+    ArmUpAir.set_value(true);
+    ArmUp = true; 
+    score.move(0);
+
+    linear_pid(40, 0.8, 127, false);
+    do_turn_global(-90, 0.6, 127);
+    ArmUpAir.set_value(true);
+    ArmUp = true;
+    linear_pid(22, 0.5, 80, true);
+    score.move(127);
+
+    // do_turn(90, 100, 127); 
+    // pros::delay(500);   
 
 
     }
