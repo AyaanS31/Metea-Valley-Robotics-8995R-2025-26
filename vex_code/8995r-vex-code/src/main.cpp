@@ -60,15 +60,14 @@ float intake_speed;
 // Global position variables
 std::vector<float> global_position = {0.0, 0.0}; // X, Y in inches
 float global_heading = 0.0; // in radians
+float initialAngle;
 
  // Utility functions
-double degToRad(double deg) {
-    return deg * M_PI / 180.0;
-}
 
-double wrapRad(double angle) {
-    while (angle > M_PI) angle -= 2 * M_PI;
-    while (angle < -M_PI) angle += 2 * M_PI;
+
+float wrap_angle(float angle) {
+    while (angle > 180) angle -= 360;
+    while (angle < -180) angle += 360;
     return angle;
 }
 
@@ -86,33 +85,6 @@ float calculate_error(float target, float current) {
  * to keep execution time for this mode under a few seconds.
  */
 
-void odometry_task();
-void initialize() {
-    pros::lcd::initialize();
-    imu_sensor.reset();
-    int leftSevenWingAngle = 115;
-    double leftSevenWingX = -47.89;
-    double leftSevenWingY = -10.15;
-
-    int soloAWP = 0;
-
-    imu_sensor.set_heading(leftSevenWingAngle);
-    global_position[0] = leftSevenWingX;
-    global_position[1] = leftSevenWingY;
-
-
-
-    pros::Task lcd_task([] {
-    while (true) {
-        pros::lcd::print(0, "X: %.1f", left_mg.get_position()*24/941);
-        pros::lcd::print(1, "Y: %.1f", right_mg.get_position()*24/941);
-        pros::delay(20);
-    }
-});
-
-
-
-}
 
 void odometry_task() {
     double lastForward = 0;
@@ -125,7 +97,7 @@ void odometry_task() {
     while (true) {
         // Heading (radians, signed)
         double headingDeg = imu_sensor.get_heading();
-        global_heading = wrapRad(degToRad(headingDeg));
+        global_heading = wrap_angle(headingDeg);
 
 
         // Forward distance (inches)
@@ -156,6 +128,22 @@ void odometry_task() {
 void disabled() {}
 
 void competition_initialize() {}
+
+void initialize() {
+    pros::lcd::initialize();
+    imu_sensor.reset();
+    double leftSevenWingAngle = 25;
+    double leftSevenWingX = 0;
+    double leftSevenWingY = 0;
+
+    int soloAWP = 0;
+
+    imu_sensor.set_heading(leftSevenWingAngle);
+    initialAngle = leftSevenWingAngle;
+    global_position[0] = leftSevenWingX;
+    global_position[1] = leftSevenWingY;
+
+}
 
 
 // PID CODE
@@ -248,7 +236,7 @@ void linear_pid(double target_distance, double drive_timeout, double speed, bool
 }
 
 void do_turn(double target_angle, double turn_timeout, double max_speed) {
-    double start_heading = wrapRad(degToRad(imu_sensor.get_rotation()));
+    double start_heading = wrap_angle(imu_sensor.get_rotation());
     double turn_error = target_angle; // initial error = target relative to start
     double prev_turn_error = turn_error;
     double integral = 0.0;
@@ -266,12 +254,12 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
         last_time = now;
         elapsed += dt;
 
-        double current_heading = wrapRad(degToRad(imu_sensor.get_heading()));
-        turn_error = wrapRad(target_angle - current_heading);
+        double current_heading = wrap_angle(imu_sensor.get_heading());
+        turn_error = wrap_angle(target_angle - current_heading);
 
 
         // Deadzone to prevent vibration
-        if (std::abs(turn_error) < degToRad(1.0)) turn_error = 0.0;
+        if (std::abs(turn_error) < wrap_angle(1.0)) turn_error = 0.0;
 
         // PID terms
         double proportional = kP_turn * turn_error;
@@ -310,10 +298,10 @@ void do_turn(double target_angle, double turn_timeout, double max_speed) {
 void do_turn_global(double target_global_heading_deg, double turn_timeout, double max_speed) {
     // Convert target to radians if your global_heading is in radians
     // Otherwise keep degrees
-    double target_heading = wrapRad(degToRad(target_global_heading_deg));
-    double current_heading = wrapRad(degToRad(imu_sensor.get_heading()));
+    double target_heading = wrap_angle(target_global_heading_deg); // degrees
 
-    double turn_error = wrapRad(target_heading - current_heading);
+    double current_heading = wrap_angle(imu_sensor.get_heading()); // degrees
+    double turn_error = wrap_angle(target_heading - current_heading);
     double prev_turn_error = turn_error;
     double integral = 0.0;
 
@@ -330,12 +318,11 @@ void do_turn_global(double target_global_heading_deg, double turn_timeout, doubl
         last_time = now;
         elapsed += dt;
 
-        current_heading = wrapRad(degToRad(imu_sensor.get_rotation()));
-        turn_error = wrapRad(target_heading - current_heading); // shortest-path error
+        current_heading = wrap_angle(imu_sensor.get_heading()); // read current heading
+        turn_error = wrap_angle(target_heading - current_heading); // shortest-path error
 
         // Deadzone to prevent vibration
-        if (std::abs(turn_error) < degToRad(1.0)) turn_error = 0.0;
-
+        if (std::abs(turn_error) < 0.3) turn_error = 0.0;
 
         // PID terms
         double proportional = kP_turn * turn_error;
@@ -358,7 +345,7 @@ void do_turn_global(double target_global_heading_deg, double turn_timeout, doubl
 
         prev_turn_error = turn_error;
 
-        if (std::abs(turn_error) < degToRad(1.0)) settle_timer += dt;
+        if (std::abs(turn_error) < 1.0) settle_timer += dt;
         else settle_timer = 0.0;
 
         if (settle_timer >= ANGULAR_SETTLE_TIME) is_settled = true;
@@ -366,7 +353,6 @@ void do_turn_global(double target_global_heading_deg, double turn_timeout, doubl
         pros::lcd::print(0, "Heading: %f | Error: %f", current_heading, turn_error);
         pros::delay(20);
     }
-
     left_mg.brake();
     right_mg.brake();
 }
@@ -384,46 +370,104 @@ void drive_to_point(double targetX, double targetY, double speed = 127, double t
     linear_pid(distance, timeout, speed, backward);
 }
 
+
 // cordinates are based on path route from pathjerry.io 
 
 void auton_skills() {}
 
 void elims(){
-    hold.move(127);
-    linear_pid(24, 1.0, 127, false);
+    hold.move(120);
+    linear_pid(20, 0.7, 127, false);
     LoaderAir.set_value(true);
     LoaderUp = true; 
-    pros::delay(500);
-    do_turn_global(45, 0.9, 127);
-    LoaderAir.set_value(false);
-    LoaderUp = false; 
-    linear_pid(20, 0.6, 127, false);
-    hold.move(-127);
     pros::delay(300);
-    linear_pid(48, 0.9, 127, true);
-    do_turn_global(-90, 0.8, 127);
+    linear_pid(7, 0.4, 127, false);  
+    do_turn_global(-65, 0.9, 127);
+    LoaderAir.set_value(false);
+    LoaderUp = false;  
+    linear_pid(16, 0.8, 110, false); 
+    score.move(-127);
+    pros::delay(300);
+    score.move(-65);
+    pros::delay(300);
+    score.move(0); 
+    linear_pid(44, 1.0, 127, true); 
     LoaderAir.set_value(true);
     LoaderUp = true; 
-    hold.move(127); 
-    linear_pid(8, 0.8, 127, false);
-    pros::delay(500);
+    do_turn_global(-116, 1, 127); 
+    linear_pid(7, 0.8, 127, true); 
+    do_turn_global(-205, 0.9, 127); 
+    hold.move(127);
+    linear_pid(15, 0.75, 70, false); 
+    // pros::delay(150); //900
     ArmUpAir.set_value(true);
     ArmUp = true; 
-    linear_pid(22, 0.9, 127, true);
-    score.move(127);
-}
-
-void left_seven_wing(){
-    drive_to_point(-33.7,-17.3, 127,1); 
-    LoaderAir.set_value(true);
-    LoaderUp = true; 
+    pros::delay(100);
+    do_turn_global(-205, 0.8, 127);
+    linear_pid(30, 0.9, 127, true);
+    score.move_velocity(127); 
+    pros::delay(1200);
+    score.move_velocity(-127); 
+    pros::delay(100);
+    hold.move_velocity(127); 
+    linear_pid(5, 0.3, 127, false); 
+    linear_pid(10, 0.6, 127, true); 
+    score.move_velocity(127); 
 }
 
 void autonomous() {
-    left_seven_wing();
+    // left_seven_wing();
+
     // hold.move(127);
-    // drive_to_point(48,0, 127,5); 
-    }
+    // linear_pid(12, 0.67, 127, false); // in, sec, 127, backwards
+    // linear_pid(48.2, 1.0, 127, true);
+    // do_turn_global(-90, 1.1, 127); // deg, sec, 127
+    // LoaderAir.set_value(true);
+    // LoaderUp = true;
+    // ArmUpAir.set_value(true);
+    // ArmUp = true;
+    // pros::delay(500);
+    // linear_pid(11, 0.5, 80, false);
+    // linear_pid(7, 0.25, 30, false);
+    // do_turn(2.5, 0.5, 127);
+    // linear_pid(30, 0.8, 60, true);
+    // do_turn_global(-90, 0.3, 127);
+    // linear_pid(8, 0.3, 60, true);
+    // hold.move(0);
+    // score.move(127);
+    // LoaderAir.set_value(false);
+    // LoaderUp = false;
+    // pros::delay(950);
+
+    // do_turn_global(5, 0.8, 127); // deg, sec, 127
+    // score.move(0);
+    // hold.move(127);
+    // linear_pid(49, 1.0, 127, false);
+    // LoaderAir.set_value(true);
+    // LoaderUp = true;
+    // ArmUpAir.set_value(false);
+    // ArmUp = false;
+    // linear_pid(10, 0.8, 127, false);
+    // do_turn_global(-45, 1, 127); 
+    // linear_pid(14, 0.65, 60, true);
+    // hold.move(0);
+    // score.move(127);
+    // pros::delay(300);
+    // ArmUpAir.set_value(true);
+    // ArmUp = true; 
+    // score.move(0);
+
+    // linear_pid(40, 0.8, 127, false);
+    // do_turn_global(-90, 0.6, 127);
+    // ArmUpAir.set_value(true);
+    // ArmUp = true;
+    // linear_pid(22, 0.5, 80, true);
+    // score.move(127);
+
+
+    elims();
+    
+}
 
 // Driver control sauce
 void opcontrol() {
