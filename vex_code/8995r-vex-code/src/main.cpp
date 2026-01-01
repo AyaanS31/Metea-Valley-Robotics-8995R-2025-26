@@ -136,12 +136,12 @@ void initialize() {
     double leftSevenWingX = 0;
     double leftSevenWingY = 0;
 
-    int soloAWP = 0;
+    int allOther = 0;
 
-    imu_sensor.set_heading(leftSevenWingAngle);
-    initialAngle = leftSevenWingAngle;
-    global_position[0] = leftSevenWingX;
-    global_position[1] = leftSevenWingY;
+    imu_sensor.set_heading(allOther);
+    initialAngle = allOther;
+    global_position[0] = 0;
+    global_position[1] = 0;
 
 }
 
@@ -419,7 +419,63 @@ void auton_skills_ayaan() {
 }
 
 void auton_skills_maks() {
-    
+    ArmUpAir.set_value(true);
+    ArmUp = true;
+    WingAir.set_value(true);
+    WingUp = true;
+    linear_pid(58, 2, 80, false);
+    linear_pid(17, 1, 80, true);
+    hold.move(127);
+    do_turn_global(90, 1.2, 127); // deg, sec, 127
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    pros::delay(500);
+    linear_pid(14, 1, 35, false);
+        linear_pid(1, 0.25, 127, true);
+        linear_pid(1, 0.75, 127, false);
+    do_turn_global(89, 0.6, 127);
+    linear_pid(16, 0.75, 60, true);
+    linear_pid(6, 0.5, 60, false);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+
+    do_turn_global(0, 1.2, 127); // deg, sec, 127
+    hold.move(0);
+    linear_pid(14, 1.5, 80, false);
+    do_turn_global(-85, 1.2, 127); // deg, sec, 127
+    linear_pid(90, 3, 80, false);
+    do_turn_global(0, 1.2, 127); // deg, sec, 127
+
+    linear_pid(8, 0.5, 80, false);
+    linear_pid(18, 1, 80, true);
+    do_turn_global(-90, 1.2, 127);
+    linear_pid(10, 0.75, 100, true);
+    score.move(127);
+    pros::delay(750);
+        score.move(-127);
+        pros::delay(150);
+        score.move(127);
+        pros::delay(1000);
+
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    pros::delay(250);
+        score.move(0);
+    hold.move(127);
+    linear_pid(36, 1.5, 50, false);
+        linear_pid(1, 0.25, 127, true);
+        linear_pid(1, 0.75, 127, false);
+    do_turn_global(-91, 0.6, 127);
+    linear_pid(30, 0.8, 60, true);
+    linear_pid(8, 0.3, 60, true);
+    hold.move(0);
+    score.move(127);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    pros::delay(1250);
+
+    // first 2 loaders done
+
 }
 
 void elims(){
@@ -515,8 +571,7 @@ void soloAWP() {
 
 void autonomous() {
 
-   
-
+   auton_skills_maks();
 
     // elims();
     // auton_skills();

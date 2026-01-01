@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "im autoning it",
+    "project_name": "im skilling it",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -635,8 +635,8 @@
       }
     },
     "upload_options": {
-      "icon": "X",
-      "slot": 1
+      "icon": "alien",
+      "slot": 2
     },
     "use_early_access": false
   }
