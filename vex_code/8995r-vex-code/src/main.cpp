@@ -478,7 +478,7 @@ void auton_skills_maks() {
 
 }
 
-void elims(){
+void elims(){ // right side 
     hold.move(120);
     linear_pid(20, 0.7, 127, false);
     LoaderAir.set_value(true);
@@ -569,7 +569,7 @@ void soloAWP() {
     score.move(127);
 }
 
-void trust9ball() {
+void trust9ball() { // right side 
     hold.move(127);
     linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
     do_turn_global(30, 0.43, 127); // deg, sec, 127
@@ -618,7 +618,7 @@ void trust9ball() {
     linear_pid(8, 0.3, 60, true);
 }
 
-void trust6wing() {
+void trust6wing() { // right side 
     hold.move(127);
     linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
     do_turn_global(30, 0.43, 127); // deg, sec, 127
