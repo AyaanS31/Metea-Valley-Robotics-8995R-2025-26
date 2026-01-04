@@ -370,86 +370,112 @@ void drive_to_point(double targetX, double targetY, double speed = 127, double t
     linear_pid(distance, timeout, speed, backward);
 }
 
-
 // cordinates are based on path route from pathjerry.io 
 
-void auton_skills_ayaan() {
-    // first loader
-    linear_pid(36, 0.8, 127, true);
-    do_turn_global(-90, 0.8, 127); // deg, sec, 127
-    LoaderAir.set_value(true);
-    LoaderUp = true;
-    ArmUpAir.set_value(true);
-    ArmUp = true;
-    pros::delay(500);
-    linear_pid(11, 0.5, 45, false);
-    linear_pid(7, 0.25, 30, false);
-    pros::delay(350);
-    do_turn_global(-91, 0.6, 127);
-    linear_pid(30, 0.8, 60, true);
-    linear_pid(8, 0.3, 60, true);
-    hold.move(0);
-    score.move(127);
-    LoaderAir.set_value(false);
-    LoaderUp = false;
-    pros::delay(950);
-
-    // second loader 
-    do_turn_global(8, 0.8, 127); // deg, sec, 127
-    linear_pid(5, 0.6, 127, false); 
-    do_turn_global(90, 0.7, 127);
-    linear_pid(49, 1.1, 127, false); 
-    do_turn_global(12, 0.7, 127); // find out what angle 
-    linear_pid(18, 0.9, 127, false); 
-    LoaderAir.set_value(true);
-    LoaderUp = true;
-    do_turn_global(90, 0.8, 127); 
-    linear_pid(7, 0.8, 50, false); // need to test all the code till this part
-    // linear_pid(22, 0.8, 127, true); 
-    // score.move_velocity(127);
-    // pros::delay(1000); 
-
-
-    // third loader 
-
-
-    // fourth loader 
-
-    
-}
-
-void auton_skills_maks() {
+void auton_skills() {
     ArmUpAir.set_value(true);
     ArmUp = true;
     WingAir.set_value(true);
     WingUp = true;
-    linear_pid(58, 2, 80, false);
-    linear_pid(17, 1, 80, true);
+    linear_pid(58, 1.55, 80, false);
+    linear_pid(17, 0.67, 80, true);
     hold.move(127);
-    do_turn_global(90, 1.2, 127); // deg, sec, 127
+    do_turn_global(90, 0.7, 127); // deg, sec, 127
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    pros::delay(420);
+    linear_pid(15.5, 0.75, 35, false);
+        linear_pid(1, 0.25, 127, true);
+        linear_pid(2, 0.25, 127, false);
+        pros::delay(500);
+        linear_pid(1, 0.25, 127, true);
+        linear_pid(2, 0.35, 127, false);
+    do_turn_global(89, 0.6, 127);
+    linear_pid(16, 0.7, 60, true);
+    linear_pid(6, 0.4, 60, false);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+
+    do_turn_global(0, 0.7, 127); // deg, sec, 127
+    hold.move(0);
+    linear_pid(14, 0.8, 80, false);
+    do_turn_global(-87, 1.1, 127); // deg, sec, 127
+    linear_pid(90, 2.15, 80, false);
+    do_turn_global(0, 1.1, 127); // deg, sec, 127
+
+    linear_pid(8, 0.5, 80, false);
+    pros::delay(250);
+
+
+
+    linear_pid(17, 0.75, 80, true);
+    do_turn_global(-90, 1.1, 127);
+    linear_pid(22, 0.70, 100, true);
+    linear_pid(6, 0.4, 35, true);
+    score.move(127);
+    pros::delay(750);
+        score.move(-127);
+        pros::delay(150);
+        score.move(127);
+        pros::delay(900);
+    do_turn_global(-90, 0.75, 127);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    pros::delay(250);
+        score.move(0);
+    hold.move(127);
+    linear_pid(38, 1.115, 50, false);
+        linear_pid(1, 0.25, 127, true);
+        linear_pid(2, 0.75, 127, false);
+    do_turn_global(-90, 0.6, 127);
+    linear_pid(30, 0.75, 75, true);
+    do_turn_global(-90, 0.25, 127);
+    linear_pid(8, 0.15, 90, true);
+    linear_pid(15, 0.25, 127, true);
+    hold.move(0);
+    score.move(96);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    pros::delay(1120);
+    score.move(127);
+
+    // first 2 loaders done
+
+    linear_pid(12, 0.5, 127, false);
+    do_turn_global(182, 0.6, 127);
+    linear_pid(118, 2.0, 127, false);
+    linear_pid(18, 0.8, 127, true);
+    do_turn_global(-90, 0.6, 127);
+        score.move(0);
+    hold.move(127);
     LoaderAir.set_value(true);
     LoaderUp = true;
     pros::delay(500);
-    linear_pid(14, 1, 35, false);
+        score.move(0);
+    hold.move(127);
+    linear_pid(29, 0.95, 35, false);
+        linear_pid(0.5, 0.25, 127, true);
+        linear_pid(2, 0.25, 127, false);
         linear_pid(1, 0.25, 127, true);
-        linear_pid(1, 0.75, 127, false);
-    do_turn_global(89, 0.6, 127);
+        linear_pid(2, 0.25, 127, false);
+        linear_pid(2, 0.25, 127, false);
+    do_turn_global(-90, 0.6, 127);
     linear_pid(16, 0.75, 60, true);
     linear_pid(6, 0.5, 60, false);
     LoaderAir.set_value(false);
     LoaderUp = false;
 
-    do_turn_global(0, 1.2, 127); // deg, sec, 127
+    do_turn_global(180, 0.9, 127); // deg, sec, 127
     hold.move(0);
-    linear_pid(14, 1.5, 80, false);
-    do_turn_global(-85, 1.2, 127); // deg, sec, 127
-    linear_pid(90, 3, 80, false);
-    do_turn_global(0, 1.2, 127); // deg, sec, 127
+    linear_pid(14, 0.7, 90, false);
+    do_turn_global(98, 1.2, 127); // deg, sec, 127
+    linear_pid(90, 2.2, 90, false);
+    do_turn_global(180, 0.95, 127); // deg, sec, 127
 
-    linear_pid(8, 0.5, 80, false);
-    linear_pid(18, 1, 80, true);
-    do_turn_global(-90, 1.2, 127);
-    linear_pid(10, 0.75, 100, true);
+    linear_pid(8, 0.5, 90, false);
+    linear_pid(18.5, 0.8, 90, true);
+    do_turn(90, 0.8, 127);
+    linear_pid(22, 0.75, 100, true);
     score.move(127);
     pros::delay(750);
         score.move(-127);
@@ -462,23 +488,44 @@ void auton_skills_maks() {
     pros::delay(250);
         score.move(0);
     hold.move(127);
-    linear_pid(36, 1.5, 50, false);
-        linear_pid(1, 0.25, 127, true);
-        linear_pid(1, 0.75, 127, false);
-    do_turn_global(-91, 0.6, 127);
-    linear_pid(30, 0.8, 60, true);
-    linear_pid(8, 0.3, 60, true);
+        do_turn_global(90, 0.6, 127);
+    linear_pid(37.5, 1.1, 50, false);
+        linear_pid(1, 0.25, 120, true);
+        linear_pid(3, 0.25, 120, false);
+        linear_pid(1, 0.25, 120, true);
+        linear_pid(3, 0.25, 120, false);
+        linear_pid(1, 0.125, 120, true);
+        linear_pid(3, 0.125, 120, false);
+        pros::delay(200);
+    do_turn_global(90.167, 0.7, 127);
+    linear_pid(32, 0.8, 80, true);
+    do_turn_global(90, 0.5, 127);
+    linear_pid(8, 0.25, 118, true);
     hold.move(0);
-    score.move(127);
+    score.move(100);
     LoaderAir.set_value(false);
     LoaderUp = false;
-    pros::delay(1250);
+    score.move(98);
+    linear_pid(8, 0.25, 127, true);
+    pros::delay(1320);
 
-    // first 2 loaders done
-
+    do_turn_global(57, 0.35, 127);
+    linear_pid(44, 0.75, 127, false);
+    do_turn_global(30, 0.72, 127);
+    linear_pid(7, 0.4, 127, false);
+    score.move(-127);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    pros::delay(200);
+    hold.move(-127);
+    linear_pid(3, 0.25, 127, true);
+    linear_pid(25, 0.75, 127, false);
+    linear_pid(3, 0.25, 127, false);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
 }
 
-void elims(){ // right side 
+void elims_right(){ // right side 
     hold.move(120);
     linear_pid(20, 0.7, 127, false);
     LoaderAir.set_value(true);
@@ -518,58 +565,101 @@ void elims(){ // right side
     score.move_velocity(127); 
 }
 
+void elims_left(){ // left side
+    hold.move(127);
+    linear_pid(15.5, 0.67, 127, false); // in, sec, 127, backwards
+    do_turn_global(-35, 0.43, 127); // deg, sec, 127
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    linear_pid(15, 0.5, 90, false); 
+    do_turn_global(-45, 0.25, 127); 
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    do_turn_global(-132, 0.75, 127);
+    pros::delay(300);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    ArmUpAir.set_value(true);
+    ArmUp = true; 
+    linear_pid(11, 0.8, 80, true);
+    score.move(90);
+    pros::delay(400);
+    score.move(0);
+    linear_pid(45, 1.25, 127, false);
+    ArmUpAir.set_value(true);
+    ArmUp = true;
+    do_turn_global(179.5, 1, 127);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    pros::delay(350);
+    score.move(0);
+    hold.move(127);
+    linear_pid(34, 1.25, 50, false);
+
+        linear_pid(1, 0.25, 127, true);
+        linear_pid(1.5, 0.5, 127, false);
+    linear_pid(15, 0.45, 127, true);
+    do_turn_global(179, 0.65, 127);
+    linear_pid(15, 0.8, 60, true);
+    score.move(127);
+    linear_pid(8, 0.3, 60, true);
+}
+
 void soloAWP() {
      hold.move(127);
-    linear_pid(12, 0.67, 127, false); // in, sec, 127, backwards
-    linear_pid(48, 1.0, 127, true);
-    do_turn_global(-90, 1.1, 127); // deg, sec, 127
+    linear_pid(12, 0.4, 127, false); // in, sec, 127, backwards
+    linear_pid(49, 1.2, 127, true);
+    do_turn_global(-91, 0.55, 127); // deg, sec, 127
     LoaderAir.set_value(true);
     LoaderUp = true;
     ArmUpAir.set_value(true);
     ArmUp = true;
     pros::delay(500);
-    linear_pid(11, 0.5, 45, false);
-    linear_pid(7, 0.25, 30, false);
-    pros::delay(350);
-    do_turn_global(-91, 0.6, 127);
-    linear_pid(30, 0.8, 60, true);
-    linear_pid(8, 0.3, 60, true);
+    linear_pid(18, 0.7, 60, false);
+    linear_pid(4, 0.25, 75, false);
+    linear_pid(4, 0.25, 75, false);
+    do_turn_global(-90, 0.4, 127);
+    linear_pid(30, 0.7, 75, true);
+    linear_pid(8, 0.2, 60, true);
     hold.move(0);
     score.move(127);
     LoaderAir.set_value(false);
     LoaderUp = false;
-    pros::delay(950);
+    pros::delay(975);
 
-    do_turn_global(8, 0.8, 127); // deg, sec, 127
+    do_turn_global(4, 1.125, 127); // deg, sec, 127
     score.move(0);
     hold.move(127);
-    linear_pid(49, 1.0, 127, false);
+    linear_pid(48, 1.0, 127, false);
     LoaderAir.set_value(true);
     LoaderUp = true;
     ArmUpAir.set_value(false);
     ArmUp = false;
-    linear_pid(11, 0.8, 127, false);
-    do_turn_global(-45, 1, 127); 
+    linear_pid(13, 0.8, 115, false);
+    do_turn_global(-45, 0.55, 127); 
     pros::delay(100);
-    linear_pid(12, 0.65, 60, true);
+    linear_pid(16, 0.55, 60, true);
     hold.move(0);
     score.move(127);
-    pros::delay(750);
+    pros::delay(250);
+    linear_pid(4, 0.15, 80, true);
     ArmUpAir.set_value(true);
     ArmUp = true; 
     score.move(0);
     LoaderAir.set_value(false);
     LoaderUp = false;
 
-    linear_pid(44, 1.0, 127, false);
-    do_turn_global(-90, 0.6, 127);
+    linear_pid(47.5, 1.35, 127, false);
+    do_turn_global(-89, 0.4, 127);
     ArmUpAir.set_value(true);
     ArmUp = true;
-    linear_pid(22, 0.5, 80, true);
+    linear_pid(23, 0.5, 80, true);
     score.move(127);
+    pros::delay(900);
+    linear_pid(2, 0.8, 127, true); 
 }
 
-void trust9ball() { // right side 
+void trust9ballR() { // right side 
     hold.move(127);
     linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
     do_turn_global(30, 0.43, 127); // deg, sec, 127
@@ -618,27 +708,27 @@ void trust9ball() { // right side
     linear_pid(8, 0.3, 60, true);
 }
 
-void trust6wing() { // right side 
+void trust6wingR() { // right side 
     hold.move(127);
     linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
     do_turn_global(30, 0.43, 127); // deg, sec, 127
     LoaderAir.set_value(true);
     LoaderUp = true;
     linear_pid(12.5, 0.5, 127, false); 
-    do_turn_global(45, 0.25, 127); 
+    do_turn_global(46, 0.25, 127); 
     LoaderAir.set_value(false);
     LoaderUp = false;
-    linear_pid(21, 0.8, 127, false); 
+    linear_pid(20.25, 0.8, 127, false); 
     do_turn_global(76, 0.55, 127);
     LoaderAir.set_value(true);
     LoaderUp = true;
-    linear_pid(7.5, 0.8, 127, false); 
-    linear_pid(24, 0.8, 127, true);
+    linear_pid(10, 0.8, 127, false); 
+    linear_pid(25, 0.8, 127, true);
     do_turn_global(132, 0.75, 127);
     pros::delay(250);
     LoaderAir.set_value(false);
     LoaderUp = false;
-    linear_pid(39.5, 1.25, 127, false);
+    linear_pid(38.125, 1.25, 127, false);
     ArmUpAir.set_value(true);
     ArmUp = true;
     do_turn_global(180, 0.75, 127); 
@@ -654,20 +744,114 @@ void trust6wing() { // right side
     
     linear_pid(12, 0.65, 127, false);
     do_turn_global(90, 0.75, 127);
-    linear_pid(10, 0.8, 127, true);
-    do_turn_global(178, 0.8, 127);
+    linear_pid(9.9, 0.8, 127, true);
+    do_turn_global(180, 0.8, 127);
+    linear_pid(28, 3, 75, true);
+}
+
+void trust6wingL() { // left side 
+    hold.move(127);
+    linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
+    do_turn_global(-30, 0.43, 127); // deg, sec, 127
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    linear_pid(12.5, 0.5, 127, false); 
+    do_turn_global(-45, 0.25, 127); 
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    linear_pid(20, 0.8, 127, false); 
+    do_turn_global(-75, 0.55, 127);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    // pros::delay(25);
+    linear_pid(9, 0.8, 127, false); 
+    linear_pid(24, 0.8, 127, true);
+    do_turn_global(-132, 0.75, 127);
+    pros::delay(250);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    linear_pid(39.5, 1.25, 127, false);
+    ArmUpAir.set_value(true);
+    ArmUp = true;
+    do_turn_global(180, 0.75, 127); 
+    linear_pid(16, 0.65, 127, true);
+    hold.move(0);
+    score.move(127);
+    pros::delay(550);
+        score.move(-127);
+        pros::delay(50);
+        score.move(127);
+    do_turn_global(179.5, 0.75, 127);
+    pros::delay(350);
+    score.move(0);
+    hold.move(127);
+    do_turn_global(180, 1.25, 127);
+    
+    linear_pid(12, 0.5, 127, false);
+    do_turn_global(90, 0.5, 127);
+    linear_pid(8.5, 0.65, 127, true);
+    do_turn_global(178, 0.6, 127);
     linear_pid(28, 3, 65, true);
 }
 
+void trust9ballL() { // left side 
+    hold.move(127);
+    linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
+    do_turn_global(-30, 0.43, 127); // deg, sec, 127
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    linear_pid(12.5, 0.5, 127, false); 
+    do_turn_global(-45, 0.25, 127); 
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    linear_pid(20, 0.8, 127, false); 
+    do_turn_global(-75, 0.55, 127);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    // pros::delay(25);
+    linear_pid(8.5, 0.8, 127, false); 
+    linear_pid(24, 0.8, 127, true);
+    do_turn_global(-132, 0.75, 127);
+    pros::delay(250);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    linear_pid(39.5, 1.25, 127, false);
+    ArmUpAir.set_value(true);
+    ArmUp = true;
+    do_turn_global(180, 0.75, 127); 
+    linear_pid(16, 0.65, 127, true);
+    hold.move(0);
+    score.move(127);
+    pros::delay(550);
+        score.move(-127);
+        pros::delay(50);
+        score.move(127);
+    do_turn_global(179.5, 1, 127);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    pros::delay(350);
+    score.move(0);
+    hold.move(127);
+    linear_pid(34, 1.25, 50, false);
+
+        linear_pid(1, 0.25, 127, true);
+        linear_pid(1.5, 0.5, 127, false);
+    linear_pid(15, 0.45, 127, true);
+    do_turn_global(179, 0.65, 127);
+    linear_pid(15, 0.8, 60, true);
+    score.move(127);
+    linear_pid(8, 0.3, 60, true);
+}
+
 void autonomous() {
-
-    trust6wing();
-
-    //trust9ball();
-   //auton_skills_maks();
-    // elims();
-    // auton_skills();
-    
+    //elims_left();
+    //soloAWP();
+    //trust6wingL();
+    //trust9ballL();
+    trust6wingR();
+    //trust9ballR();
+    //elims_right(); 
+    //auton_skills();
 }
 
 // Driver control sauce
@@ -697,7 +881,7 @@ void opcontrol() {
         } else if (controller.get_digital(DIGITAL_R2)) { // just the intake preroller running to intake
             pre.move(127);
 
-        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)) { // intake down
+        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)) { // intake down
             if (ArmDown == false && ArmUp == false) { // from neutral state down
                 ArmDownAir.set_value(true);
                 pros::delay(20);
@@ -715,7 +899,7 @@ void opcontrol() {
                 pros::delay(20);
                 ArmDown = false;
             }
-        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT)) { // Intake Up
+        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) { // Intake Up
             if (ArmUp == false && ArmDown == false) { // from neutral to up
                 ArmUpAir.set_value(true);
                 pros::delay(20);
@@ -741,7 +925,7 @@ void opcontrol() {
                 pros::delay(20);
                 LoaderUp = false;
             }
-        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)) { // Wing mech
+        } else if (controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) { // Wing mech
             if (WingUp == false) {
                 WingAir.set_value(true);
                 pros::delay(20);
