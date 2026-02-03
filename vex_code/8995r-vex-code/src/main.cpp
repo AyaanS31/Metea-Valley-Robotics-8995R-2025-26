@@ -29,7 +29,8 @@ bool WingUp = false;
 
 // tracking wheels
 // horizontal tracking wheel encoder. Rotation sensor, port 14, not reversed
-pros::Rotation horizontalEnc(14);
+pros::Rotation horizontalEnc(14); // horiztonal 
+pros::Rotation verticalEnc(15); // vertical tracking wheel encoder. Rotation sensor, port 15, not reversed
 
 pros::ADIDigitalOut ArmUpAir('F', false);
 pros::ADIDigitalOut ArmDownAir('G', false);
@@ -90,18 +91,18 @@ void odometry_task() {
     double lastForward = 0;
     double lastStrafe = 0;
 
-    left_mg.tare_position();
-    right_mg.tare_position();
+    verticalEnc.reset_position();
     horizontalEnc.reset_position();
 
     while (true) {
-        // Heading (radians, signed)
+        // Heading from IMU (degrees)
         double headingDeg = imu_sensor.get_heading();
         global_heading = wrap_angle(headingDeg);
-
+        // Convert to radians for trig
+        double headingRad = global_heading * M_PI / 180.0;
 
         // Forward distance (inches)
-        double forward = ((left_mg.get_position() + right_mg.get_position()) / 2.0)
+        double forward = (verticalEnc.get_position() / 100.0)
                           * motor_degree_to_inch;
 
         // Strafe distance (inches)
@@ -114,9 +115,9 @@ void odometry_task() {
         lastForward = forward;
         lastStrafe = strafe;
 
-        // Rotate into field frame
-        double dx = dF * cos(global_heading) - dS * sin(global_heading);
-        double dy = dF * sin(global_heading) + dS * cos(global_heading);
+        // Rotate into field frame (using radians)
+        double dx = dF * cos(headingRad) - dS * sin(headingRad);
+        double dy = dF * sin(headingRad) + dS * cos(headingRad);
 
         global_position[0] += dx;
         global_position[1] += dy;
@@ -132,6 +133,7 @@ void competition_initialize() {}
 void initialize() {
     pros::lcd::initialize();
     imu_sensor.reset();
+    pros::Task odom_task(odometry_task);
     double leftSevenWingAngle = 25;
     double leftSevenWingX = 0;
     double leftSevenWingY = 0;
@@ -147,93 +149,88 @@ void initialize() {
 
 
 // PID CODE
-void linear_pid(double target_distance, double drive_timeout, double speed, bool backward = false) {
-    // Negate target distance if driving backward
-    if (backward) target_distance = -target_distance;
-
-    // Tare motors
-    left_mg.tare_position();
-    right_mg.tare_position();
-    pros::delay(50);
-
-    double k = 0.105; // error constant for 3.25 inch wheels
-    double absolute_target = target_distance + (target_distance * k); // adjust target based on error constant
-    double distance_error = absolute_target; // initial error
-    double prev_distance_error = distance_error;
-
+// Drives to XY coordinate using odometry. Turn to face target first with do_turn_global.
+void drive_to_point(double target_x, double target_y, double drive_timeout, double speed, bool backward = false) {
+    double distance_error = 0.0;
+    double prev_distance_error = 0.0;
     double integral = 0.0;
-    double integral_term = 0.0;
-    double derivative = 0.0;
-    double linear_output = 0.0;
     double settle_timer = 0.0;
-    bool is_settled = false;
 
     std::int32_t last_time = pros::millis();
     double elapsed = 0.0;
 
-    const double min_command = 8.0; // stiction
+    const double min_command = 8.0; // stiction compensation
+    const double settle_time = 0.15; // seconds to consider settled
+    
+    // Direction: +1 forward, -1 backward
+    double dir = if(backward) -1.0; else 1.0;
 
-    while (elapsed < drive_timeout && !is_settled) {
+    // Initialize previous error
+    double dx = target_x - global_position[0];
+    double dy = target_y - global_position[1];
+    prev_distance_error = std::sqrt(dx * dx + dy * dy);
+
+    while (elapsed < drive_timeout) {
         std::int32_t now = pros::millis();
         double dt = (now - last_time) / 1000.0;
         if (dt <= 0.0) dt = 0.02;
         last_time = now;
         elapsed += dt;
 
-        double currentPositionLeft = left_mg.get_position() * motor_degree_to_inch;
-        double currentPositionRight = right_mg.get_position() * motor_degree_to_inch;
-        double currentPosition = (currentPositionLeft + currentPositionRight) / 2.0;
+        // Remaining distance to target (always positive)
+        dx = target_x - global_position[0];
+        dy = target_y - global_position[1];
+        distance_error = std::sqrt(dx * dx + dy * dy);
 
-        distance_error = absolute_target - currentPosition;
-
-        // PID
+        // PID (error always positive)
         double proportional = kP_linear * distance_error;
 
-        if (std::abs(distance_error) < linear_error_threshold * 2.0) {
+        if (distance_error < linear_error_threshold * 2.0) {
             integral += distance_error * dt;
         } else {
             integral = 0.0;
         }
         integral = std::clamp(integral, -linear_integral_max, linear_integral_max);
-        integral_term = kI_linear * integral;
+        double integral_term = kI_linear * integral;
 
-        derivative = (distance_error - prev_distance_error) / dt;
+        double derivative = (distance_error - prev_distance_error) / dt;
         double derivative_term = kD_linear * derivative;
 
-        linear_output = proportional + integral_term + derivative_term;
+        double linear_output = proportional + integral_term + derivative_term;
 
-        // Stiction
-        if (std::abs(linear_output) > 0 && std::abs(linear_output) < min_command) {
-            linear_output = std::copysign(min_command, linear_output);
+        // Stiction compensation
+        if (linear_output > 0 && linear_output < min_command) {
+            linear_output = min_command;
         }
 
-        // Clamp to speed
-        linear_output = std::clamp(linear_output, -speed, speed);
+        // Clamp to max speed
+        linear_output = std::clamp(linear_output, 0.0, speed);
 
-        int cmd = (int)std::round(linear_output);
+        // Apply direction for backward driving (dir results in either +1 or -1)
+        int cmd = (int)std::round(dir * linear_output); 
         left_mg.move(cmd);
         right_mg.move(cmd);
 
         prev_distance_error = distance_error;
 
-        // Settling
-        if (std::abs(distance_error) < linear_error_threshold) {
+        // Settling check
+        if (distance_error < linear_error_threshold) {
             settle_timer += dt;
+            if (settle_timer >= settle_time) {
+                break; // settled, exit loop
+            }
         } else {
             settle_timer = 0.0;
         }
-        if (settle_timer >= linear_settle_time) {
-            is_settled = true;
-        }
 
-        pros::lcd::print(0, "pos: %f err: %f P:%f I:%f D:%f out:%f dt:%f", currentPosition, distance_error, proportional, integral_term, derivative_term, linear_output, dt);
-
+        pros::lcd::print(0, "X:%.1f Y:%.1f err:%.2f out:%d", global_position[0], global_position[1], distance_error, cmd);
         pros::delay(20);
     }
 
     left_mg.brake();
     right_mg.brake();
 }
+
 
 void do_turn(double target_angle, double turn_timeout, double max_speed) {
     double start_heading = wrap_angle(imu_sensor.get_rotation());
@@ -355,19 +352,6 @@ void do_turn_global(double target_global_heading_deg, double turn_timeout, doubl
     }
     left_mg.brake();
     right_mg.brake();
-}
-
-void drive_to_point(double targetX, double targetY, double speed = 127, double timeout = 5.0) {
-    // Calculate distance from current position to target
-    double dx = targetX - global_position[0];
-    double dy = targetY - global_position[1];
-    double distance = sqrt(dx * dx + dy * dy); // straight-line distance in inches
-
-    // Determine if driving backward (optional: you can implement heading-based check)
-    bool backward = false;
-
-    // Run your existing linear PID with the computed distance and timeout
-    linear_pid(distance, timeout, speed, backward);
 }
 
 // cordinates are based on path route from pathjerry.io 
