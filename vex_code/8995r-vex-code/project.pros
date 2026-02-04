@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "6 wing R",
+    "project_name": "new bot",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -636,7 +636,7 @@
     },
     "upload_options": {
       "icon": "pros",
-      "slot": 3
+      "slot": 1
     },
     "use_early_access": false
   }
