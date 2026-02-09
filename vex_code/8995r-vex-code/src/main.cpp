@@ -1,14 +1,14 @@
 #include "main.h"
 #include <cmath>
 
-// controller 6767
+// controller 676767
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 // motor groups
 pros::MotorGroup left_mg({-11, -12, -13}, pros::MotorGear::blue);
 pros::MotorGroup right_mg({15, 16, 17}, pros::MotorGearset::blue); 
 
-pros::Imu imu_sensor(17);
+pros::Imu imu_sensor(21);
 pros::Distance distance_sensor_back(4);
 pros::Distance distance_sensor_right(5);
 
@@ -19,17 +19,19 @@ bool ArmUp = true;
 bool LoaderUp = false;
 bool WingUp = false;
 bool LeverUp = false;
-    bool LeverMovingDown = false;
+bool LeverMovingDown = false;
+int leverStopCount = 0;
+
 
 // tracking wheels
 // horizontal tracking wheel encoder. Rotation sensor, port 14, not reversed
 pros::Rotation horizontalEnc(19); // horiztonal 
 pros::Rotation verticalEnc(20); // vertical
 
-pros::ADIDigitalOut LeverAir('A', false);
-pros::ADIDigitalOut WingAir('B', false);
-pros::ADIDigitalOut LoaderAir('C', false);
-pros::ADIDigitalOut HoodAir('D', false);
+pros::ADIDigitalOut LeverAir('H', false);
+pros::ADIDigitalOut WingAir('A', false);
+pros::ADIDigitalOut LoaderAir('G', false);
+pros::ADIDigitalOut HoodAir('F', true);
 
 double kP_linear = 22;
 double kI_linear = 0;    
@@ -53,8 +55,8 @@ const double angular_integral_max = 0.5; // max integral term to prevent wind
 
 float intake_speed; 
 // Global position variables
-double global_x = 0.0; 
-double global_y = 0.0; 
+float global_x = 0.0; // can i change this initial value and it still works? 
+float global_y = 0.0; 
 float global_heading = 0.0; // in radians
 float initialAngle;
 
@@ -104,7 +106,7 @@ void odometry_task() {
 
         double avgTheta = last_heading + (dTheta/2.0); 
 
-        // Rotate into field frame (using radians)
+        // Rotate into field frame (using radians btw)
         global_x += dF * cos(avgTheta) - dS * sin(avgTheta);
         global_y += dF * sin(avgTheta) + dS * cos(avgTheta);
         global_heading = wrap_angle(current_heading);
@@ -113,9 +115,7 @@ void odometry_task() {
         lastStrafe = current_strafe;
         last_heading = current_heading;
 
-        pros::lcd::print(0, "X:%.2f Y:%.2f Theta:%.2f", global_x, global_y, global_heading);
-
-        pros::delay(10);
+        pros::delay(20);
     }
 }
 
@@ -126,25 +126,13 @@ void competition_initialize() {}
 void initialize() {
     pros::lcd::initialize();
     imu_sensor.reset();
-    verticalEnc.reset_position();
-    horizontalEnc.reset_position();
     pros::Task odom_task(odometry_task);
-    double leftSevenWingAngle = 25;
-    double leftSevenWingX = 0;
-    double leftSevenWingY = 0;
-
-    int allOther = 0;
-
-    imu_sensor.set_heading(allOther);
-    initialAngle = allOther;
 }
 
 
 // PID CODE
 // Drives to XY coordinate using odometry. Turn to face target first with do_turn_global.
-void drive_to_point(double target_x, double target_y, double drive_timeout, double speed, bool backward = false) {
-    double distance_error = 0.0;
-    double prev_distance_error = 0.0;
+void drive(double target_x, double target_y, double drive_timeout, double speed, bool backward = false) {
     double integral = 0.0;
     double settle_timer = 0.0;
 
@@ -161,7 +149,8 @@ void drive_to_point(double target_x, double target_y, double drive_timeout, doub
     // Initialize previous error
     double dx = target_x - global_x;
     double dy = target_y - global_y;
-    prev_distance_error = std::sqrt(dx * dx + dy * dy);
+    double distance_error = std::sqrt(dx * dx + dy * dy);
+    double prev_distance_error = distance_error; 
 
     while (elapsed < drive_timeout) {
         std::int32_t now = pros::millis();
@@ -510,438 +499,304 @@ void auton_skills() {
     // LoaderUp = false;
 }
 
-void elims_right(){ // right side 
-    // hold.move(127);
-    // linear_pid(14.67, 0.65, 127, false); // in, sec, 127, backwards
-    // do_turn_global(30, 0.43, 127); // deg, sec, 127
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // linear_pid(12.5, 0.5, 127, false); 
-    // do_turn_global(45, 0.25, 127); 
-    // linear_pid(16, 0.8, 110, false); 
-    // score.move(-127);
-    // pros::delay(300);
-    // score.move(-65);
-    // pros::delay(300);
-    // score.move(0); 
-    // linear_pid(44, 1.0, 127, true); 
-    // LoaderAir.set_value(true);
-    // LoaderUp = true; 
-    // do_turn_global(-116, 1, 127); 
-    // linear_pid(7, 0.8, 127, true); 
-    // do_turn_global(-205, 0.9, 127); 
-    // hold.move(127);
-    // linear_pid(15, 0.75, 70, false); 
-    // // pros::delay(150); //900
-    // ArmUpAir.set_value(true);
-    // ArmUp = true; 
-    // pros::delay(100);
-    // do_turn_global(-205, 0.8, 127);
-    // linear_pid(30, 0.9, 127, true);
-    // score.move_velocity(127); 
-    // pros::delay(1200);
-    // score.move_velocity(-127); 
-    // pros::delay(100);
-    // hold.move_velocity(127); 
-    // linear_pid(5, 0.3, 127, false); 
-    // linear_pid(10, 0.6, 127, true); 
-    // score.move_velocity(127); 
-    // pros::delay(1000);
-    // do_turn_global(-205, 0.7, 127);
-    // linear_pid(12, 0.65, 127, false);
-    // do_turn_global(90, 0.75, 127);
-    // linear_pid(9.9, 0.8, 127, true);
-    // do_turn_global(180, 0.8, 127);
-    // linear_pid(28, 3, 75, true);
+void drive_to_point(double target_x, double target_y, double drive_timeout, double speed, bool backward = false) {
+    // Negate target distance if driving backward
+
+    // Tare motors
+    left_mg.tare_position();
+    right_mg.tare_position();
+    pros::delay(50);
+
+    double dx = pow(target_x - global_x, 2);
+    double dy = pow(target_y - global_y, 2);
+
+    double absolute_target = std::sqrt(dx + dy);
+    double distance_error = absolute_target; // initial error
+    double prev_distance_error = distance_error;
+
+    double integral = 0.0;
+    double integral_term = 0.0;
+    double derivative = 0.0;
+    double linear_output = 0.0;
+    double settle_timer = 0.0;
+    bool is_settled = false;
+
+    std::int32_t last_time = pros::millis();
+    double elapsed = 0.0;
+
+    const double min_command = 8.0; // stiction
+
+    while (elapsed < drive_timeout && !is_settled) {
+        std::int32_t now = pros::millis();
+        double dt = (now - last_time) / 1000.0;
+        if (dt <= 0.0) dt = 0.02;
+
+        last_time = now;
+        elapsed += dt;
+
+        // Forward distance (inches i think)
+        double current_y = (verticalEnc.get_position() / 100.0)
+                          * motor_degree_to_inch;;
+
+        // Strafe distance (inches i think)
+        double current_x = (horizontalEnc.get_position() / 100.0)
+                         * motor_degree_to_inch;; // ts should be updating everytime it moves if odom works perfectly. 
+
+        current_x; 
+        current_y; 
+
+        double current_pos = std::sqrt(pow(target_x-current_x, 2) + pow(target_y-current_y,2));
+        
+        distance_error = absolute_target - current_pos;
+
+        // PID
+        double proportional = kP_linear * distance_error;
+
+        if (std::abs(distance_error) < linear_error_threshold * 2.0) {
+            integral += distance_error * dt;
+        } else {
+            integral = 0.0;
+        }
+        integral = std::clamp(integral, -linear_integral_max, linear_integral_max);
+        integral_term = kI_linear * integral;
+
+        derivative = (distance_error - prev_distance_error) / dt;
+        double derivative_term = kD_linear * derivative;
+
+        linear_output = proportional + integral_term + derivative_term;
+
+        if (std::abs(linear_output) > 0 && std::abs(linear_output) < min_command) {
+            linear_output = std::copysign(min_command, linear_output);
+        }
+
+        // Clamp to speed
+        linear_output = std::clamp(linear_output, -speed, speed);
+
+        int cmd = (int)std::round(linear_output);
+        left_mg.move(cmd);
+        right_mg.move(cmd);
+
+        prev_distance_error = distance_error;
+
+        // Settling
+        if (std::abs(distance_error) < linear_error_threshold) {
+            settle_timer += dt;
+        } else {
+            settle_timer = 0.0;
+        }
+        if (settle_timer >= linear_settle_time) {
+            is_settled = true;
+        }
+
+        pros::lcd::print(0, "pos: %f err: %f P:%f I:%f D:%f out:%f dt:%f", distance_error, proportional, integral_term, derivative_term, linear_output, dt);
+
+        pros::delay(20);
+    }
+    left_mg.brake();
+    right_mg.brake();
+    global_x = target_x; 
+    global_y = target_y; 
 }
 
-void elims_left(){ // left side
-    // hold.move(127);
-    // linear_pid(15.5, 0.67, 127, false); // in, sec, 127, backwards
-    // do_turn_global(-35, 0.43, 127); // deg, sec, 127
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // linear_pid(15, 0.5, 90, false); 
-    // do_turn_global(-45, 0.25, 127); 
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // do_turn_global(-132, 0.75, 127);
-    // pros::delay(300);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // ArmUpAir.set_value(true);
-    // ArmUp = true; 
-    // linear_pid(12.5, 0.8, 80, true);
-    // score.move(85);
-    // pros::delay(350);
-    // score.move(0);
-    // linear_pid(43, 1.25, 127, false);
-    // ArmUpAir.set_value(true);
-    // ArmUp = true;
-    // do_turn_global(179.5, 1, 127);
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // pros::delay(350);
-    // score.move(0);
-    // hold.move(127);
-    // linear_pid(34, 1.25, 50, false);
+void linear_pid(double target_distance, double drive_timeout, double speed, bool backward = false) {
+    // Negate target distance if driving backward
+    if (backward) target_distance = -target_distance;
 
-    //     linear_pid(1, 0.25, 127, true);
-    //     linear_pid(1.5, 0.5, 127, false);
-    // linear_pid(15, 0.45, 127, true);
-    // do_turn_global(179, 0.65, 127);
-    // linear_pid(15, 0.8, 60, true);
-    // linear_pid(8, 0.3, 60, true);
-    // score.move(127);
-    // pros::delay(750);
-    //     score.move(-127);
-    //     pros::delay(150);
-    //     score.move(127);
-    //     pros::delay(900);
+    // Tare motors
+    left_mg.tare_position();
+    right_mg.tare_position();
+    pros::delay(50);
+
+    double k = 0.105; // error constant for 3.25 inch wheels
+    double absolute_target = target_distance + (target_distance * k); // adjust target based on error constant
+    double distance_error = absolute_target; // initial error
+    double prev_distance_error = distance_error;
+
+    double integral = 0.0;
+    double integral_term = 0.0;
+    double derivative = 0.0;
+    double linear_output = 0.0;
+    double settle_timer = 0.0;
+    bool is_settled = false;
+
+    std::int32_t last_time = pros::millis();
+    double elapsed = 0.0;
+
+    const double min_command = 8.0; // stiction
+
+    while (elapsed < drive_timeout && !is_settled) {
+        std::int32_t now = pros::millis();
+        double dt = (now - last_time) / 1000.0;
+        if (dt <= 0.0) dt = 0.02;
+        last_time = now;
+        elapsed += dt;
+
+        double currentPositionLeft = left_mg.get_position() * motor_degree_to_inch;
+        double currentPositionRight = right_mg.get_position() * motor_degree_to_inch;
+        double currentPosition = (currentPositionLeft + currentPositionRight) / 2.0;
+
+        distance_error = absolute_target - currentPosition;
+
+        // PID
+        double proportional = kP_linear * distance_error;
+
+        if (std::abs(distance_error) < linear_error_threshold * 2.0) {
+            integral += distance_error * dt;
+        } else {
+            integral = 0.0;
+        }
+        integral = std::clamp(integral, -linear_integral_max, linear_integral_max);
+        integral_term = kI_linear * integral;
+
+        derivative = (distance_error - prev_distance_error) / dt;
+        double derivative_term = kD_linear * derivative;
+
+        linear_output = proportional + integral_term + derivative_term;
+
+        // Stiction
+        if (std::abs(linear_output) > 0 && std::abs(linear_output) < min_command) {
+            linear_output = std::copysign(min_command, linear_output);
+        }
+
+        // Clamp to speed
+        linear_output = std::clamp(linear_output, -speed, speed);
+
+        int cmd = (int)std::round(linear_output);
+        left_mg.move(cmd);
+        right_mg.move(cmd);
+
+        prev_distance_error = distance_error;
+
+        // Settling
+        if (std::abs(distance_error) < linear_error_threshold) {
+            settle_timer += dt;
+        } else {
+            settle_timer = 0.0;
+        }
+        if (settle_timer >= linear_settle_time) {
+            is_settled = true;
+        }
+
+        pros::lcd::print(0, "pos: %f err: %f P:%f I:%f D:%f out:%f dt:%f", currentPosition, distance_error, proportional, integral_term, derivative_term, linear_output, dt);
+
+        pros::delay(20);
+    }
+
+    left_mg.brake();
+    right_mg.brake();
+
 }
 
-void soloAWP() {
-    //  hold.move(127);
-    // linear_pid(12, 0.4, 127, false); // in, sec, 127, backwards
-    // linear_pid(49, 1.2, 127, true);
-    // do_turn_global(-91, 0.55, 127); // deg, sec, 127
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // ArmUpAir.set_value(true);
-    // ArmUp = true;
-    // pros::delay(500);
-    // linear_pid(18, 0.7, 60, false);
-    // linear_pid(5, 0.25, 75, false);
-    // pros::delay(400);
-    // do_turn_global(-90, 0.4, 127);
-    // do_turn_global(-90, 0.5, 127);
-    // linear_pid(30, 0.7, 75, true);
-    // linear_pid(8, 0.2, 60, true);
-    // hold.move(0);
-    // score.move(127);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // pros::delay(975);
-
-    // do_turn_global(4, 1.256, 127); // deg, sec, 127
-    // score.move(0);
-    // hold.move(127);
-    // linear_pid(48, 1.0, 127, false);
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // ArmUpAir.set_value(false);
-    // ArmUp = false;
-    // linear_pid(15, 0.8, 115, false);
-    // do_turn_global(-45, 0.55, 127); 
-    // pros::delay(100);
-    // linear_pid(16, 0.55, 60, true);
-    // hold.move(0);
-    // score.move(127);
-    // pros::delay(250);
-    // linear_pid(4, 0.2, 80, true);
-    // ArmUpAir.set_value(true);
-    // ArmUp = true; 
-    // score.move(0);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-
-    // linear_pid(48, 1.35, 127, false);
-    // do_turn_global(-89, 0.4, 127);
-    // ArmUpAir.set_value(true);
-    // ArmUp = true;
-    // linear_pid(18, 0.5, 80, true);
-    // score.move(127);
-    // pros::delay(700);
-    // //linear_pid(2, 0.8, 127, true); 
-}
-
-void trust9ballR() { // right side 
-    // hold.move(127);
-    // linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
-    // do_turn_global(30, 0.43, 127); // deg, sec, 127
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // linear_pid(12.5, 0.5, 127, false); 
-    // do_turn_global(45, 0.25, 127); 
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // linear_pid(21, 0.8, 127, false); 
-    // do_turn_global(76, 0.55, 127);
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // // pros::delay(25);
-    // linear_pid(7.5, 0.8, 127, false); 
-    // linear_pid(24, 0.8, 127, true);
-    // do_turn_global(132, 0.75, 127);
-    // pros::delay(250);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // linear_pid(39.5, 1.25, 127, false);
-    // ArmUpAir.set_value(true);
-    // ArmUp = true;
-    // do_turn_global(180, 0.75, 127); 
-    // linear_pid(16, 0.65, 127, true);
-    // hold.move(0);
-    // score.move(127);
-    // pros::delay(550);
-    //     score.move(-127);
-    //     pros::delay(50);
-    //     score.move(127);
-    // do_turn_global(180, 0.75, 127);
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // pros::delay(350);
-    // score.move(0);
-    // hold.move(127);
-    // linear_pid(34, 1.25, 50, false);
-
-    //     linear_pid(1, 0.25, 127, true);
-    //     linear_pid(1.5, 0.25, 127, false);
-    // linear_pid(15, 0.45, 127, true);
-    // do_turn_global(179, 0.65, 127);
-    // linear_pid(15, 0.8, 60, true);
-    // score.move(127);
-    // linear_pid(8, 0.3, 60, true);
-}
-
-void trust6wingR() { // right side 
-    // hold.move(127);
-    // linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
-    // do_turn_global(30, 0.43, 127); // deg, sec, 127
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // linear_pid(12.5, 0.5, 127, false); 
-    // do_turn_global(46, 0.25, 127); 
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // linear_pid(20.25, 0.67, 127, false); 
-    // do_turn_global(76, 0.55, 127);
-    // linear_pid(6, 0.6, 127, false); 
-    // pros::delay(50);
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // linear_pid(2, 0.2, 127, false); 
-    // linear_pid(25, 0.7, 127, true);
-    // do_turn_global(132, 0.75, 127);
-    // pros::delay(250);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // linear_pid(39.5, 0.85, 127, false);
-    // ArmUpAir.set_value(true);
-    // ArmUp = true;
-    // do_turn_global(180, 0.75, 127); 
-    // linear_pid(16, 0.65, 127, true);
-    // hold.move(0);
-    // score.move(127);
-    // pros::delay(500);
-    //     score.move(-127);
-    //     pros::delay(50);
-    //     score.move(127);
-    //     pros::delay(500);
-    // do_turn_global(180, 0.67, 127);
-    
-    // linear_pid(12, 0.65, 127, false);
-    // do_turn_global(90, 0.75, 127);
-    // linear_pid(10, 0.7, 127, true);
-    // do_turn_global(180, 0.67, 127);
-    // linear_pid(24, 1.2, 75, true);
-}
-
-void trust6wingL() { // left side 
-    // hold.move(127);
-    // linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
-    // do_turn_global(-30, 0.43, 127); // deg, sec, 127
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // linear_pid(12.5, 0.5, 127, false); 
-    // do_turn_global(-45, 0.25, 127); 
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // linear_pid(20, 0.8, 127, false); 
-    // do_turn_global(-75, 0.55, 127);
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // // pros::delay(25);
-    // linear_pid(9, 0.8, 127, false); 
-    // linear_pid(24, 0.8, 127, true);
-    // do_turn_global(-132, 0.75, 127);
-    // pros::delay(250);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // linear_pid(39.5, 1.25, 127, false);
-    // ArmUpAir.set_value(true);
-    // ArmUp = true;
-    // do_turn_global(180, 0.75, 127); 
-    // linear_pid(16, 0.65, 127, true);
-    // hold.move(0);
-    // score.move(127);
-    // pros::delay(550);
-    //     score.move(-127);
-    //     pros::delay(50);
-    //     score.move(127);
-    // do_turn_global(179.5, 0.75, 127);
-    // pros::delay(350);
-    // score.move(0);
-    // hold.move(127);
-    // do_turn_global(180, 1.25, 127);
-    
-    // linear_pid(12, 0.5, 127, false);
-    // do_turn_global(90, 0.5, 127);
-    // linear_pid(8.5, 0.65, 127, true);
-    // do_turn_global(178, 0.6, 127);
-    // linear_pid(28, 3, 65, true);
-}
-
-void trust9ballL() { // left side 
-    // hold.move(127);
-    // linear_pid(15.5, 0.65, 127, false); // in, sec, 127, backwards
-    // do_turn_global(-30, 0.43, 127); // deg, sec, 127
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // linear_pid(12.5, 0.5, 127, false); 
-    // do_turn_global(-45, 0.25, 127); 
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // linear_pid(20, 0.8, 127, false); 
-    // do_turn_global(-75, 0.55, 127);
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // // pros::delay(25);
-    // linear_pid(8.5, 0.8, 127, false); 
-    // linear_pid(24, 0.8, 127, true);
-    // do_turn_global(-132, 0.75, 127);
-    // pros::delay(250);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // linear_pid(38, 1.25, 127, false);
-    // ArmUpAir.set_value(true);
-    // ArmUp = true;
-    // do_turn_global(180, 0.75, 127); 
-    // linear_pid(16, 0.65, 127, true);
-    // hold.move(0);
-    // score.move(127);
-    // pros::delay(550);
-    //     score.move(-127);
-    //     pros::delay(50);
-    //     score.move(127);
-    // do_turn_global(179.5, 1, 127);
-    // LoaderAir.set_value(true);
-
-    // LoaderUp = true;
-    // pros::delay(350);
-    // score.move(0);
-    // hold.move(127);
-    // linear_pid(34, 1.25, 50, false);
-
-    //     linear_pid(1, 0.25, 127, true);
-    //     linear_pid(1.5, 0.5, 127, false);
-    // linear_pid(15, 0.45, 127, true);
-    // do_turn_global(179, 0.65, 127);
-    // linear_pid(15, 0.8, 60, true);
-    // score.move(127);
-    // linear_pid(8, 0.3, 60, true);
-}
 
 void autonomous() {
-    // elims_left();
-
-    // soloAWP();
-    //trust6wingL();
-    // trust9ballL();
-    trust6wingR();
-    //trust9ballR();
-    // elims_right(); 
-    // auton_skills();
+    auton_skills();
 }
 
-// Driver control sauce
-void opcontrol() {
 
+// sauce
+void opcontrol() {
+    HoodAir.set_value(false); 
     while (true) {
 
-        //  // Arcade control scheme
-        int dir = controller.get_analog(ANALOG_LEFT_Y);    // Gets amount forward/backward from left joystick
-        int turn = controller.get_analog(ANALOG_LEFT_X);  // Gets the turn left/right from right joystick
-        left_mg.move(dir + turn);                      // Sets left motor voltage
-        right_mg.move(dir - turn);                     // Sets right motor voltage
+        // Arcade drive
+        int dir = controller.get_analog(ANALOG_LEFT_Y);
+        int turn = controller.get_analog(ANALOG_LEFT_X);
+        left_mg.move(dir + turn);
+        right_mg.move(dir - turn);
 
-        if(controller.get_digital(DIGITAL_L1) && !LeverUp){ // intake only if the lever is already down to prevent blocks from getting stuck
+        
+
+        if (controller.get_digital(DIGITAL_L1) && !LeverUp) {
             intake.move(127);
         }
 
-        else if(controller.get_digital(DIGITAL_L2)){ // outtake 
+        else if (controller.get_digital(DIGITAL_L2)) {
             intake.move(-45);
         }
 
-        else if(ArmUp && controller.get_digital(DIGITAL_R1)){ // macro for scoring the lever as fast as possible - ARM UP
-            intake.move(127); // make sure the blocks dont get stuck halfway into the intake 
-            pros::delay(50); // wait for blocks to clear
-            HoodAir.set_value(true); // open the hood to score
-            LeverUp = true; // lock the intake from spinning in other functions
-            lever.move(127);
-            intake.move(0); 
-        } 
-
-        else if(!ArmUp && controller.get_digital(DIGITAL_R1)){ // macro for scoring the lever as fast as possible - ARM DOWN
-            intake.move(127); 
-            pros::delay(50); 
+        else if (controller.get_digital_new_press(DIGITAL_R1)) {
+            intake.move(127);
+            pros::delay(50);    
             HoodAir.set_value(true);
-            LeverUp = true;
-            lever.move(50); // tune ts up
-            intake.move(0); 
-        } 
 
-        else if (controller.get_digital_new_press(DIGITAL_R2)) { // lever structure up/down
-            if (ArmUp == true) {
+            LeverUp = true;
+            leverStopCount = 0;
+            lever.move(68);
+
+            intake.move(0);
+        }
+
+        else if (controller.get_digital_new_press(DIGITAL_R2)) {
+            if (ArmUp) {
                 LeverAir.set_value(false);
                 pros::delay(20);
                 ArmUp = false;
             } else {
-                LeverAir.set_value(ArmUp == false);
+                LeverAir.set_value(true);
                 pros::delay(20);
                 ArmUp = true;
             }
         }
 
-        else if (controller.get_digital_new_press(DIGITAL_A)) { // Wing mech toggle
-            if (WingUp == false) {
+        else if (controller.get_digital_new_press(DIGITAL_A)) {
+            if (!WingUp) {
                 WingAir.set_value(true);
                 pros::delay(20);
                 WingUp = true;
             } else {
-                WingAir.set_value(WingUp == false);
+                WingAir.set_value(false);
                 pros::delay(20);
                 WingUp = false;
             }
         }
 
-        else if (controller.get_digital_new_press(DIGITAL_B)) { // loader mech toggle
-            if (LoaderUp == false) {
+        else if (controller.get_digital_new_press(DIGITAL_B)) {
+            if (!LoaderUp) {
                 LoaderAir.set_value(true);
                 pros::delay(20);
                 LoaderUp = true;
             } else {
-                LoaderAir.set_value(LoaderUp == false);
+                LoaderAir.set_value(false);
                 pros::delay(20);
                 LoaderUp = false;
             }
         }
 
-        else if(LeverUp && (lever.get_actual_velocity()) <= 50) { // lever arm reset macro: if it hit the end of the path up, start reset back
-            lever.move(-127);
-            LeverMovingDown = true;
-            HoodAir.set_value(false);
+        else if (LeverUp) {   // trying to move up
+            if (abs(lever.get_actual_velocity()) < 10) {
+                leverStopCount++;
+            } else {
+                leverStopCount = 0;
+            }
+
+            if (leverStopCount >= 3) {
+                LeverUp = false;
+                LeverMovingDown = true;
+                leverStopCount = 0;
+
+                HoodAir.set_value(false);
+                lever.move(-127);
+            }
         }
 
-        else if(LeverMovingDown && (lever.get_actual_velocity()) <= 50) { // if it hit the end of the path on the way down, stop moving it to prevent burnout
-            lever.move(0);
-            LeverUp = false;
-            LeverMovingDown = false;
+        else if (LeverMovingDown) { // trying to move down
+            if (abs(lever.get_actual_velocity()) < 10) {
+                leverStopCount++;
+            } else {
+                leverStopCount = 0;
+            }
+
+            if (leverStopCount >= 3) {
+                LeverMovingDown = false;
+                leverStopCount = 0;
+                lever.move(0);
+            }
         }
 
-        else { // stop moving intake if we don't want it to
+        else {
             intake.move(0);
         }
 
-    pros::delay(25);
-}}
+        pros::delay(25);
+    }
+}
