@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "skills_wraps",
+    "project_name": "solo_awp",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -636,7 +636,7 @@
     },
     "upload_options": {
       "icon": "pros",
-      "slot": 1
+      "slot": 3
     },
     "use_early_access": false
   }

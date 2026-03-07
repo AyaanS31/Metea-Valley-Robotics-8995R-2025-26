@@ -355,7 +355,7 @@ void auton_skills() {
     LoaderAir.set_value(true);
     LoaderUp = true;
     pros::delay(420);
-    linear_pid(15.5, 0.75, 70, false);
+    linear_pid(15.5, 0.75, 50, false);
         linear_pid(1, 0.25, 127, true);
         linear_pid(4, 0.25, 127, false);
         pros::delay(500);
@@ -364,6 +364,8 @@ void auton_skills() {
         linear_pid(3, 0.3, 127, false);
         pros::delay(400);
     square_to_wall(0.5); // square it up here 
+    WingAir.set_value(true);
+    WingUp = true;
     linear_pid(16, 0.7, 60, true);
     do_turn_global(45, 0.5, 127);
     intake.move(0);
@@ -371,11 +373,12 @@ void auton_skills() {
     LoaderAir.set_value(false);
     LoaderUp = false;
     do_turn_global(90, 0.9, 127); 
-    linear_pid(130, 0.9, 90, true);
+    linear_pid(177, 0.9, 90, true);
+    dist_to_back(30, 0.5);
 
     do_turn_global(140, 0.5, 127);
-    linear_pid(16.8, 0.5, 95, true);
-    do_turn_global(-90, 0.6, 80);
+    linear_pid(16.4, 0.5, 95, true);
+    do_turn_global(-90, 0.8, 80);
     square_to_wall(0.9);
     linear_pid(18, 0.75, 45, true);
 
@@ -484,11 +487,120 @@ void auton_skills() {
 }
 
 void solo_awp(){
+    intake.move(127);
+    square_to_wall(0.9);
+    linear_pid(12, 0.4, 127, false); // in, sec, 127, backwards
+    dist_to_back(40, 0.4);
+    square_to_wall(0.5);
+    linear_pid(49, 1.2, 127, true);
+    dist_to_back(25.5, 0.4);
+    do_turn_global(-90, 0.55, 127); // deg, sec, 127
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    WingAir.set_value(true);
+    WingUp = true;
+    pros::delay(500);
+    linear_pid(18, 0.7, 60, false);
+    linear_pid(4, 0.25, 75, false);
+    linear_pid(4, 0.25, 75, false);
+    linear_pid(5, 0.25, 75, false);
+    pros::delay(400);
+    do_turn_global(-90, 0.4, 127);
+    do_turn_global(-90, 0.5, 127);
+    square_to_wall(0.5);
+    linear_pid(30, 0.7, 75, true);
+    linear_pid(8, 0.2, 60, true);
+    intake.move(0);
+    lever.move(70);
+    pros::delay(600);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
 
+    do_turn_global(4, 1.125, 127); // deg, sec, 127
+    do_turn_global(4, 1.256, 127); // deg, sec, 127
+    intake.move(127);
+    linear_pid(48, 1.0, 127, false);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    WingAir.set_value(false);
+    WingUp = false;
+    linear_pid(13, 0.8, 115, false);
+    linear_pid(15, 0.8, 115, false);
+    do_turn_global(-45, 0.55, 127); 
+    pros::delay(100);
+    linear_pid(16, 0.55, 60, true);
+    intake.move(0);
+    lever.move(40);
+    pros::delay(250);
+    linear_pid(4, 0.15, 80, true);
+    linear_pid(4, 0.2, 80, true);
+    WingAir.set_value(true);
+    WingUp = true;
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+
+    linear_pid(47.5, 1.35, 127, false);
+    linear_pid(48, 1.35, 127, false);
+    do_turn_global(-89, 0.4, 127);
+    WingUpAir.set_value(true);
+    WingUp = true;
+    linear_pid(23, 0.5, 80, true);
+    linear_pid(18, 0.5, 80, true);
+    lever.move(70);
+    pros::delay(600);
+    linear_pid(2, 0.8, 127, true); 
+    pros::delay(700);
 }
 
 void elite_elims_right(){
+    intake.move(127);
+    linear_pid(30, 0.65, 100, false); // in, sec, 127, backwards
+    dist_to_back(40, 0.4);
+    square_to_wall(0.5);
+    do_turn_global(20, 0.43, 100); // deg, sec, 127
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    linear_pid(12.5, 0.5, 100, false); 
+    do_turn_global(45, 0.25, 100); 
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    linear_pid(21, 0.8, 100, false); 
+    do_turn_global(56, 0.55, 100);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    // pros::delay(25);
+    linear_pid(7.5, 0.8, 100, false); 
+    linear_pid(24, 0.8, 100, true);
+    do_turn_global(132, 0.75, 100);
+    // pros::delay(250);
+    // LoaderAir.set_value(false);
+    // LoaderUp = false;
+    // linear_pid(39.5, 1.25, 127, false);
+    // ArmUpAir.set_value(true);
+    // ArmUp = true;
+    // do_turn_global(180, 0.75, 127); 
+    // linear_pid(16, 0.65, 127, true);
+    // intake.move(0);
+    // score.move(127);
+    // pros::delay(550);
+    //     score.move(-127);
+    //     pros::delay(50);
+    //     score.move(127);
+    // do_turn_global(180, 0.75, 127);
+    // LoaderAir.set_value(true);
+    // LoaderUp = true;
+    // pros::delay(350);
+    // score.move(0);
+    // intake.move(127);
+    // linear_pid(34, 1.25, 50, false);
 
+    //     linear_pid(1, 0.25, 127, true);
+    //     linear_pid(1.5, 0.25, 127, false);
+    // linear_pid(15, 0.45, 127, true);
+    // do_turn_global(179, 0.65, 127);
+    // linear_pid(15, 0.8, 60, true);
+    // score.move(127);
+    // linear_pid(8, 0.3, 60, true);
 }
 
 void elite_elims_left(){
@@ -496,7 +608,7 @@ void elite_elims_left(){
 }
 
 void autonomous() {
-    auton_skills();
+    solo_awp();
 }
 
 
