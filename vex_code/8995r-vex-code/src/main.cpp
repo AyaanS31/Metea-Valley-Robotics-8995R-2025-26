@@ -323,8 +323,9 @@ void square_to_wall(double timeout) {
         double L_raw = left_dist_sensor.get() / 25.4;
         double C_raw = right_dist_sensor.get() / 25.4;
 
-        if (L_raw > 40 || C_raw > 40) break; 
-        double error = L_raw - C_raw; 
+        if (L_raw > 70 || C_raw > 70) break; 
+        // error with offset 
+        double error = (L_raw - C_raw);
         
         if (std::abs(error) < 0.4) break; 
 
@@ -488,68 +489,88 @@ void auton_skills() {
 
 void solo_awp(){
     intake.move(127);
-    square_to_wall(0.9);
-    linear_pid(12, 0.4, 127, false); // in, sec, 127, backwards
-    dist_to_back(40, 0.4);
-    square_to_wall(0.5);
-    linear_pid(49, 1.2, 127, true);
-    dist_to_back(25.5, 0.4);
-    do_turn_global(-90, 0.55, 127); // deg, sec, 127
-    LoaderAir.set_value(true);
-    LoaderUp = true;
+    HoodAir.set_value(false);
+    square_to_wall(200);
+    linear_pid(12, 0.4, 65, false); // in, sec, 127, backwards
+    dist_to_back(35, 0.4);
+    square_to_wall(500);
+    do_turn_global(0.5, 0.43, 100); // deg, sec, 127
+    linear_pid(44, 0.9, 100, true);
+    square_to_wall(670);
+    dist_to_back(28, 0.4);
+    LeverAir.set_value(true);
+    LeverUp = true;
     WingAir.set_value(true);
     WingUp = true;
-    pros::delay(500);
-    linear_pid(18, 0.7, 60, false);
-    linear_pid(4, 0.25, 75, false);
-    linear_pid(4, 0.25, 75, false);
-    linear_pid(5, 0.25, 75, false);
-    pros::delay(400);
-    do_turn_global(-90, 0.4, 127);
-    do_turn_global(-90, 0.5, 127);
-    square_to_wall(0.5);
-    linear_pid(30, 0.7, 75, true);
-    linear_pid(8, 0.2, 60, true);
+    do_turn_global(-90, 0.7, 100); // deg, sec, 127
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    pros::delay(420);
+    linear_pid(17.5, 0.75, 50, false);
+        pros::delay(150);
+        do_turn_global(-86, 0.4, 80);
+        linear_pid(4, 0.25, 127, false); 
+    linear_pid(20, 0.7, 70, true);
+    do_turn_global(-86.5, 0.4, 80);
+    linear_pid(20, 0.4, 60, true);
+    HoodAir.set_value(true);
     intake.move(0);
-    lever.move(70);
+    lever.move(127);
     pros::delay(600);
     LoaderAir.set_value(false);
     LoaderUp = false;
 
-    do_turn_global(4, 1.125, 127); // deg, sec, 127
-    do_turn_global(4, 1.256, 127); // deg, sec, 127
+    lever.move(-127);
+
+    linear_pid(12, 0.8, 127, false); 
+    do_turn_global(25, 0.5, 127);
     intake.move(127);
-    linear_pid(48, 1.0, 127, false);
+    HoodAir.set_value(false);
+    linear_pid(24, 0.7, 127, false);
     LoaderAir.set_value(true);
     LoaderUp = true;
-    WingAir.set_value(false);
-    WingUp = false;
-    linear_pid(13, 0.8, 115, false);
-    linear_pid(15, 0.8, 115, false);
-    do_turn_global(-45, 0.55, 127); 
+    linear_pid(5, 0.7, 127, false); 
+
+    LeverAir.set_value(false);
+    LeverUp = false;
+    // loader done 
+    // go to middle goal
+    do_turn_global(2, 0.4, 127); 
+    LoaderAir.set_value(false);
+    LoaderUp = false; 
+    linear_pid(42, 1.0, 127, false);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    linear_pid(14, 0.7, 127, false);
+    do_turn_global(-40, 0.55, 127); 
     pros::delay(100);
-    linear_pid(16, 0.55, 60, true);
+    HoodAir.set_value(true);
+    linear_pid(14.8, 0.55, 60, true);
     intake.move(0);
-    lever.move(40);
-    pros::delay(250);
-    linear_pid(4, 0.15, 80, true);
-    linear_pid(4, 0.2, 80, true);
-    WingAir.set_value(true);
-    WingUp = true;
+    pros::delay(100);
+    lever.move(127);
+    pros::delay(100);
+    lever.move(70);
+    pros::delay(750); 
     LoaderAir.set_value(false);
     LoaderUp = false;
+    // going to the loader for long goal 
 
     linear_pid(47.5, 1.35, 127, false);
     linear_pid(48, 1.35, 127, false);
-    do_turn_global(-89, 0.4, 127);
-    WingUpAir.set_value(true);
-    WingUp = true;
+    do_turn_global(-90, 0.4, 127);
+    linear_pid(17.5, 0.25, 50, false); 
+        pros::delay(150);
+        do_turn_global(-86, 0.4, 80);
+        linear_pid(4, 0.25, 127, false); 
     linear_pid(23, 0.5, 80, true);
     linear_pid(18, 0.5, 80, true);
-    lever.move(70);
+    lever.move(127);
     pros::delay(600);
     linear_pid(2, 0.8, 127, true); 
     pros::delay(700);
+
+    // done! 
 }
 
 void elite_elims_right(){
