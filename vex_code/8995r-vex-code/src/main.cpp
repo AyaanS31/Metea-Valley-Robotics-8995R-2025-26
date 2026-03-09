@@ -21,6 +21,7 @@ bool WingUp = false;
 bool LeverUp = false;
 bool LeverMovingDown = false;
 int leverStopCount = 0;
+bool MidGoal = false;
 
 
 // tracking wheels
@@ -31,7 +32,7 @@ pros::Rotation verticalEnc(20); // vertical
 pros::ADIDigitalOut LeverAir('H', false);
 pros::ADIDigitalOut WingAir('A', false);
 pros::ADIDigitalOut LoaderAir('G', false);
-pros::ADIDigitalOut HoodAir('F', false);
+pros::ADIDigitalOut HoodAir('F', true);
 
 double kP_linear = 22;
 double kI_linear = 0.000;    
@@ -314,10 +315,9 @@ void dist_to_back(double target_dist_from_wall, double timeout) {
     right_mg.tare_position();
 }
 
-// fried function i think? 
 void square_to_wall(double timeout) {
     uint32_t start_time = pros::millis();
-    double kP_tilt = 2.5; 
+    double kP_tilt = 15; 
 
     while (pros::millis() - start_time < timeout) {
         double L_raw = left_dist_sensor.get() / 25.4;
@@ -327,7 +327,7 @@ void square_to_wall(double timeout) {
         // error with offset 
         double error = (L_raw - C_raw);
         
-        if (std::abs(error) < 0.4) break; 
+        //if (std::abs(error) < 0.05) break; 
 
         double output = error * kP_tilt;
         
@@ -343,215 +343,154 @@ void square_to_wall(double timeout) {
 }
 
 void auton_skills() {
+    // square_to_wall(200);
+    // dist_to_back(36, 0.25);
+    // do_turn_global(-88.5, 0.65, 80);
+
     HoodAir.set_value(false);
+    linear_pid(14, 0.5, 80, false);
+    do_turn_global(-45, 0.5, 80);
+    intake.move(127);
+    linear_pid(6, 0.35, 127, false);
+    linear_pid(6, 0.45, 127, false);
+        intake.move(0);
+    linear_pid(4, 0.35, 127, false);
+    LoaderAir.set_value(true);
+    LoaderUp = true;
+    do_turn_global(-135, 0.65, 80);
+    intake.move(127);
+    linear_pid(14.5, 0.65, 127, true);
+    lever.move(127);
+        pros::delay(100);
+        lever.move(-127);
+        pros::delay(50);
+        lever.move(127);
+        pros::delay(200);
+        lever.move(0);
+        pros::delay(20);
+        HoodAir.set_value(true);
+        lever.move(50);
+        pros::delay(500);
+    lever.move(-127);
+
     LeverAir.set_value(true);
     LeverUp = true;
     WingAir.set_value(true);
     WingUp = true;
-    linear_pid(40, 0.99, 80, true);
-    square_to_wall(0.9);
-    dist_to_back(25.5, 0.4);
-    intake.move(127);
-    do_turn_global(90, 0.7, 100); // deg, sec, 127
-    LoaderAir.set_value(true);
-    LoaderUp = true;
-    pros::delay(420);
-    linear_pid(15.5, 0.75, 50, false);
-        linear_pid(1, 0.25, 127, true);
-        linear_pid(4, 0.25, 127, false);
-        pros::delay(500);
-        linear_pid(1, 0.25, 127, true);
-        linear_pid(4, 0.35, 127, false);
-        linear_pid(3, 0.3, 127, false);
-        pros::delay(400);
-    square_to_wall(0.5); // square it up here 
-    WingAir.set_value(true);
-    WingUp = true;
-    linear_pid(16, 0.7, 60, true);
-    do_turn_global(45, 0.5, 127);
     intake.move(0);
-    linear_pid(17.67, 0.5, 80, true);
+    linear_pid(51.25, 1.5, 127, false);
+    HoodAir.set_value(false);
+    intake.move(127);
+    do_turn_global(-180, 0.65, 100);
+
+    linear_pid(20, 0.65, 50, false);
+        linear_pid(3, 0.25, 80, false);
+        linear_pid(1, 0.25, 50, true);
+        linear_pid(3, 0.5, 100, false);
+        linear_pid(1, 0.25, 50, true);
+        linear_pid(3, 0.5, 100, false);
+    do_turn_global(120, 0.65, 127);
+    linear_pid(14, 0.8, 80, true);
     LoaderAir.set_value(false);
     LoaderUp = false;
-    do_turn_global(90, 0.9, 127); 
-    linear_pid(177, 0.9, 90, true);
-    dist_to_back(30, 0.5);
+    do_turn_global(177, 0.5, 100);
 
-    do_turn_global(140, 0.5, 127);
-    linear_pid(16.4, 0.5, 95, true);
-    do_turn_global(-90, 0.8, 80);
-    square_to_wall(0.9);
-    linear_pid(18, 0.75, 45, true);
+    linear_pid(75, 2.5, 127, true);
+    do_turn_global(90, 0.75, 100);
+    linear_pid(14, 0.65, 90, false);
+    dist_to_back(14, 0.5); // idk 
 
+    do_turn_global(0, 0.65, 127);
+    linear_pid(24, 1, 80, true);
     HoodAir.set_value(true);
-    lever.move(70);
-    pros::delay(800); 
-    linear_pid(38, 1.115, 70, false);
-        linear_pid(1, 0.25, 100, true);
-        linear_pid(4, 0.75, 100, false);
-        linear_pid(6, 0.3, 100, false);
-        linear_pid(5, 0.3, 80, false);
-        pros::delay(300);
-    square_to_wall(0.5);
-    linear_pid(30, 0.75, 75, true);
-    do_turn_global(-90, 0.5, 127);
-    square_to_wall(0.5);
-    linear_pid(8, 0.15, 85, true);
+    intake.move(0);
+    lever.move(127);
+    pros::delay(100);
+    lever.move(50);
+    linear_pid(5, 0.2, 100, true);
+    pros::delay(500);
+    lever.move(-127);
 
-    lever.move(70);
+    // move to second loader and back
 
-    // // first 2 loaders done
+    // fried ahh clear park zone
 
-    // linear_pid(12, 0.5, 127, false);
-    // do_turn_global(182, 0.6, 127);
-    // linear_pid(118, 2.0, 127, false);
-    // linear_pid(18, 0.8, 127, true);
-    // do_turn_global(-90, 0.6, 127);
-    //     score.move(0);
-    // hold.move(127);
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // pros::delay(500);
-    //     score.move(0);
-    // hold.move(127);
-    // linear_pid(35, 0.95, 35, false);
-    //     linear_pid(0.5, 0.25, 127, true);
-    //     linear_pid(3, 0.25, 127, false);
-    //     linear_pid(1, 0.25, 127, true);
-    //     linear_pid(3, 0.25, 127, false);
-    //     linear_pid(3, 0.25, 127, false);
-    // do_turn_global(-90, 0.6, 127);
-    // linear_pid(16, 0.75, 60, true);
-    // linear_pid(6, 0.5, 60, false);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
+    // score middle goal
+    
+    // third loader
 
-    // do_turn_global(180, 0.9, 127); // deg, sec, 127
-    // hold.move(0);
-    // linear_pid(14, 0.7, 90, false);
-    // do_turn_global(98, 1.2, 127); // deg, sec, 127
-    // linear_pid(90, 2.2, 90, false);
-    // do_turn_global(180, 0.95, 127); // deg, sec, 127
+    // go and score
 
-    // linear_pid(8, 0.5, 90, false);
-    // linear_pid(18.5, 0.8, 90, true);
-    // do_turn(90, 0.8, 127);
-    // linear_pid(22, 0.75, 100, true);
-    // score.move(127);
-    // pros::delay(750);
-    //     score.move(-127);
-    //     pros::delay(150);
-    //     score.move(127);
-    //     pros::delay(1000);
+    // fourth loader and score
 
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // pros::delay(250);
-    //     score.move(0);
-    // hold.move(127);
-    //     do_turn_global(90, 0.6, 127);
-    // linear_pid(38.5, 1.1, 50, false);
-    //     linear_pid(1, 0.25, 120, true);
-    //     linear_pid(3, 0.25, 120, false);
-    //     linear_pid(1, 0.25, 120, true);
-    //     linear_pid(3, 0.125, 127, false);
-    //     linear_pid(1, 0.125, 127, true);
-    //     linear_pid(3, 0.25, 120, false);
-    //     linear_pid(5, 0.25, 127, false);
-    //     pros::delay(200);
-    // do_turn_global(90.167, 0.7, 127);
-    // linear_pid(32, 0.8, 80, true);
-    // do_turn_global(90, 0.5, 127);
-    // linear_pid(8, 0.25, 90, true);
-    // hold.move(0);
-    // score.move(102);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
-    // score.move(99);
-    // linear_pid(8, 0.25, 127, true);
-    // pros::delay(1470);
-
-    // do_turn_global(57, 0.35, 127);
-    // linear_pid(44, 0.75, 127, false);
-    // do_turn_global(30, 0.72, 127);
-    // linear_pid(5, 0.4, 127, false);
-    // score.move(-127);
-    // LoaderAir.set_value(true);
-    // LoaderUp = true;
-    // pros::delay(200);
-    // hold.move(-127);
-    // linear_pid(9, 0.25, 127, true);
-    // linear_pid(34, 0.75, 127, false);
-    // linear_pid(8, 0.25, 127, false);
-    // LoaderAir.set_value(false);
-    // LoaderUp = false;
+    // clear and park
 }
 
 void solo_awp(){
+
     intake.move(127);
-    square_to_wall(200);
+    //square_to_wall(200);
     linear_pid(11, 0.33, 65, false); // in, sec, 127, backwards
-    dist_to_back(35, 0.25);
+    dist_to_back(36, 0.25);
     //square_to_wall(250);
     //do_turn_global(0.5, 0.43, 100); // deg, sec, 127
 
-    linear_pid(46, 0.7, 100, true);
+    linear_pid(34, 0.7, 127, true);
     //square_to_wall(500);
-    dist_to_back(29, 0.5);
+    dist_to_back(28.5, 0.5);
     LeverAir.set_value(true);
     LeverUp = true;
     WingAir.set_value(true);
     WingUp = true;
-    do_turn_global(-88.75, 0.65, 80); // deg, sec, 127
+    do_turn_global(-88.5, 0.65, 80); // deg, sec, 127
     LoaderAir.set_value(true);
     LoaderUp = true;
-    pros::delay(250);
-    linear_pid(17.5, 0.5, 45, false);
-        linear_pid(2.5, 0.2, 100, false);
-        do_turn_global(-88, 0.3, 127);
-        linear_pid(2, 0.5, 127, false); 
-    // linear_pid(20, 0.45, 70, true);
-    // do_turn_global(-90, 0.4, 80);
-    linear_pid(40, 0.6, 100, true);
+    pros::delay(150);
+    linear_pid(19, 0.55, 50, false);
+        linear_pid(3, 0.25, 80, false);
+        do_turn_global(-88, 0.25, 127);
+        linear_pid(1, 0.05, 127, true); 
+        linear_pid(3, 0.15, 127, false); 
+        do_turn_global(-88.75, 0.1, 127);
+    linear_pid(39, 0.5, 100, true);
     HoodAir.set_value(true);
     intake.move(0);
     lever.move(80);
     linear_pid(5, 0.2, 100, true);
-    pros::delay(320);
+    pros::delay(250);
     LoaderAir.set_value(false);
     LoaderUp = false;
 
     linear_pid(12, 0.4, 127, false); 
     lever.move(-127);
-    do_turn_global(26, 0.5, 100);
+    do_turn_global(26.5, 0.7, 95);
     intake.move(127);
     HoodAir.set_value(false);
-    linear_pid(26, 0.65, 127, false);
+    linear_pid(28, 0.5, 127, false);
     LoaderAir.set_value(true);
     LoaderUp = true;
-    linear_pid(7, 0.25, 127, false); 
+    linear_pid(8, 0.3, 127, false); 
 
     // loader done 
     // go to middle goal
-    do_turn_global(1, 0.4, 127); 
     LeverAir.set_value(false);
     LeverUp = false;
     LoaderAir.set_value(false);
     LoaderUp = false; 
-    linear_pid(40, .9, 127, false);
+    do_turn_global(-1.25, 0.4, 127); 
+    linear_pid(40, .8, 127, false);
     LoaderAir.set_value(true);
     LoaderUp = true;
-    linear_pid(12, 0.6, 127, false);
-    do_turn_global(-43, 0.55, 127); 
-    pros::delay(100);
+    linear_pid(15.5, 0.5, 127, false); 
+    do_turn_global(-45, 0.45, 127); 
+    linear_pid(13.5, 0.45, 60, true);
     HoodAir.set_value(true);
-    linear_pid(15, 0.55, 60, true);
+    lever.move(127);
+    pros::delay(150);
     intake.move(0);
     pros::delay(100);
-    lever.move(127);
-    pros::delay(50);
-    lever.move(60);
-    pros::delay(350); 
+    lever.move(80);
+    pros::delay(250); 
     HoodAir.set_value(false);
     LoaderAir.set_value(false);
     LoaderUp = false;
@@ -561,20 +500,26 @@ void solo_awp(){
     intake.move(127);
     // going to the loader for long goal 
 
-    linear_pid(43, 0.75, 127, false);
+    linear_pid(44.75, 1, 127, false);
     LoaderAir.set_value(true);
     LoaderUp = true;
-    do_turn_global(-90, 0.4, 127);
-    linear_pid(20, 0.3, 127, false);
-    linear_pid(10, 0.4, 50, false);
-        linear_pid(2.5, 0.125, 100, false);
-        do_turn_global(-92, 0.25, 127);
-    linear_pid(40, 0.4, 127, true);
+    do_turn_global(-90, 0.35, 127);
+    linear_pid(12, 0.3, 127, false);
+    linear_pid(12, 0.125, 80, false);
+        linear_pid(3, 0.1, 100, false);
+        lever.move(50);
+        pros::delay(25);
+        lever.move(-50); 
+        linear_pid(1, 0.05, 127, true);
+        lever.move(0);
+        linear_pid(3, 0.05, 127, false);
+        do_turn_global(-95, 0.25, 127);
+    linear_pid(60, 0.5, 127, true);
     LoaderAir.set_value(false);
     LoaderUp = false;
     HoodAir.set_value(true);
     intake.move(0);
-    lever.move(80);
+    lever.move(127);
     linear_pid(5, 0.2, 100, true);
 }
 
@@ -634,7 +579,8 @@ void elite_elims_left(){
 }
 
 void autonomous() {
-    solo_awp();
+    //solo_awp();
+    auton_skills();
 }
 
 
@@ -656,7 +602,7 @@ void opcontrol() {
         }
 
         else if (controller.get_digital(DIGITAL_L2)) {
-            intake.move(-45);
+            intake.move(-75);
         }
 
         else if (controller.get_digital_new_press(DIGITAL_R1)) {
@@ -676,10 +622,12 @@ void opcontrol() {
                 LeverAir.set_value(false);
                 pros::delay(20);
                 ArmUp = false;
+                WingAir.set_value(false); //going undergoal
             } else {
                 LeverAir.set_value(true);
                 pros::delay(20);
                 ArmUp = true;
+                WingAir.set_value(true); // deafult for the wing is the up position
             }
         }
 
@@ -695,16 +643,40 @@ void opcontrol() {
             intake.move(0);
         }
 
-        else if (controller.get_digital_new_press(DIGITAL_A)) {
-            if (!WingUp) {
-                WingAir.set_value(true);
-                pros::delay(20);
-                WingUp = true;
+         else if (controller.get_digital(DIGITAL_Y)){ // really slow scoring for middle goal 7
+            MidGoal = true;
+            intake.move(127);
+            pros::delay(80);    
+            HoodAir.set_value(true);
+
+            LeverUp = true;
+            leverStopCount = 0;
+            lever.move(127); // overcome any jammed Blocks/ overheated lever motor
+            pros::delay(100); 
+            lever.move(35); // main scoring speed at ~25% 
+
+            intake.move(0);
+        }
+
+         else if (LeverUp && MidGoal) { //when does it give up if it is trying to score middle 7
+            if (abs(lever.get_actual_velocity()) < 5) {
+                leverStopCount++;
             } else {
+                leverStopCount = 0;
+            }
+
+            if (leverStopCount >= 5) { // 2.5 seconds count 
+                LeverUp = false;
+                LeverMovingDown = true;
+                leverStopCount = 0;
+
+                lever.move(-127);
+            }
+        }
+
+        else if (controller.get_digital(DIGITAL_A)) { // default up, toggle to down
                 WingAir.set_value(false);
                 pros::delay(20);
-                WingUp = false;
-            }
         }
 
         else if (controller.get_digital_new_press(DIGITAL_B)) {
@@ -746,12 +718,23 @@ void opcontrol() {
             if (leverStopCount >= 3) {
                 LeverMovingDown = false;
                 leverStopCount = 0;
-                lever.move(0);
+                lever.move(-5); // small force down in case it bounces up 
             }
         }
 
+        else if (controller.get_digital(DIGITAL_DOWN)) { // open the hood for taking Blocks in goal
+                 HoodAir.set_value(true);
+                 pros::delay(20);
+         }
+
+
         else {
             intake.move(0);
+		    HoodAir.set_value(false); // close hood for default state
+
+            if(ArmUp) {
+                WingAir.set_value(true); // deafult for the wing is the up position
+            }
         }
 
         pros::delay(25);

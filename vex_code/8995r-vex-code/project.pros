@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "solo_awp",
+    "project_name": "lemme hit",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -636,7 +636,7 @@
     },
     "upload_options": {
       "icon": "pros",
-      "slot": 3
+      "slot": 1
     },
     "use_early_access": false
   }
