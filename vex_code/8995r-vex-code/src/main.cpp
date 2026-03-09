@@ -4,7 +4,7 @@
 // controller 676767
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
-// motor groups
+// motor groups and sensors 
 pros::MotorGroup left_mg({-11, -12, -13}, pros::MotorGear::blue);
 pros::MotorGroup right_mg({15, 16, 17}, pros::MotorGearset::blue); 
 
@@ -15,6 +15,7 @@ pros::Distance right_dist_sensor(20);
 pros::Motor intake(10);
 pros::Motor lever(-14);
 
+// Variable initialization for the macros
 bool ArmUp = true;
 bool LoaderUp = false;
 bool WingUp = false;
@@ -22,7 +23,6 @@ bool LeverUp = false;
 bool LeverMovingDown = false;
 int leverStopCount = 0;
 bool MidGoal = false;
-
 
 // tracking wheels
 // horizontal tracking wheel encoder. Rotation sensor, port 14, not reversed
@@ -34,19 +34,26 @@ pros::ADIDigitalOut WingAir('A', false);
 pros::ADIDigitalOut LoaderAir('G', false);
 pros::ADIDigitalOut HoodAir('F', true);
 
+// forwrad/backward PID tuning values
 double kP_linear = 22;
-double kI_linear = 0.000;    
+double kI_linear = 0.001; // already almost no overshoot
 double kD_linear = 2;
 
+// turning PID tuning values
 double kP_turn = 5;
 double kI_turn = 0.125;
 double kD_turn = .32;
+
+// distance sensor offsets
+const double MIDDLE_Y_OFFSET = 7.1; 
+const double LEFT_Y_OFFSET = 7.1;   
+const double LEFT_X_OFFSET = 5.2;   
 
 const float wheel_diameter = 3.25*0.99576271185; // in inches
 const float wheel_circumference = wheel_diameter * M_PI; // in inches
 const float degreesPerInch = 360.0 / wheel_circumference; // degrees per inch of travel
 const float motor_degree_to_inch = 1.0 / degreesPerInch; // inches per degree of motor rotation
-const float inches_per_tick = (wheel_diameter * M_PI )/ 36000.0; // inches per encoder tick, assuming 360 ticks per revolution
+const float inches_per_tick = (wheel_diameter * M_PI )/ 36000.0; // inches per encoder tick in motor encoders
 const double linear_error_threshold = .3; // inches
 const double linear_settle_time = 3; // seconds
 const double linear_integral_max = 50.0; // max integral term to prevent windup
@@ -62,14 +69,11 @@ float global_heading = 0; // In radians, facing east
 float initialAngle;
 
  // Utility functions
-
-
 float wrap_angle(float angle) {
     while (angle > 180) angle -= 360;
     while (angle < -180) angle += 360;
     return angle;
 }
-
 
 float calculate_error(float target, float current) {
     return target - current;
@@ -82,7 +86,6 @@ float calculate_error(float target, float current) {
  * All other competition modes are blocked by initialize; it is recommended
  * to keep execution time for this mode under a few seconds.
  */
-
 
 void odometry_task() {
     const float wheel_distance = 10.0; // Distance between left and right wheels in inches
@@ -113,17 +116,13 @@ void odometry_task() {
     }
 }
 
-
-void disabled() {}
-
-void competition_initialize() {}
-
 void initialize() {
     pros::lcd::initialize();
     imu_sensor.reset();
     pros::Task odom_task(odometry_task);
 }
 
+// main move function
 void linear_pid(float target_distance, float drive_timeout, double speed, bool backwards = false) { //linear PID
 
     if (backwards) target_distance = -target_distance;
@@ -210,6 +209,7 @@ void linear_pid(float target_distance, float drive_timeout, double speed, bool b
     right_mg.brake();
 }
 
+// main turn function
 void do_turn_global(double target_global_heading_deg, double turn_timeout, double max_speed) {
     // Convert target to radians if your global_heading is in radians
     // Otherwise keep degrees
@@ -275,13 +275,7 @@ void do_turn_global(double target_global_heading_deg, double turn_timeout, doubl
     right_mg.brake();
 }
 
-
-// distance sensor sauce
-
-const double MIDDLE_Y_OFFSET = 7.1; 
-const double LEFT_Y_OFFSET = 7.1;   
-const double LEFT_X_OFFSET = 5.2;   
-
+// distance to the walls
 double get_corrected_dist() {
     double center_raw = right_dist_sensor.get() / 25.4; // ts converts to inches 
     double left_raw = left_dist_sensor.get() / 25.4; 
@@ -301,6 +295,8 @@ double get_corrected_dist() {
     }
     return -1; 
 }
+
+// Linear P loop based on distance sensors
 void dist_to_back(double target_dist_from_wall, double timeout) {
     double current_dist = get_corrected_dist();
     if (current_dist == -1) return; 
@@ -315,6 +311,7 @@ void dist_to_back(double target_dist_from_wall, double timeout) {
     right_mg.tare_position();
 }
 
+// Angular P loop based on distance sensors
 void square_to_wall(double timeout) {
     uint32_t start_time = pros::millis();
     double kP_tilt = 15; 
@@ -342,6 +339,7 @@ void square_to_wall(double timeout) {
     right_mg.brake();
 }
 
+// autonomous routines
 void auton_skills() {
     // square_to_wall(200);
     // dist_to_back(36, 0.25);
@@ -583,13 +581,12 @@ void autonomous() {
     auton_skills();
 }
 
-
-// sauce
+// driver control macros and movement
 void opcontrol() {
     HoodAir.set_value(false); 
     while (true) {
 
-        // Arcade drive
+        // single stick arcade drive
         int dir = controller.get_analog(ANALOG_LEFT_Y);
         int turn = controller.get_analog(ANALOG_LEFT_X);
         left_mg.move(dir + turn);
@@ -605,7 +602,7 @@ void opcontrol() {
             intake.move(-75);
         }
 
-        else if (controller.get_digital_new_press(DIGITAL_R1)) {
+        else if (controller.get_digital_new_press(DIGITAL_R1)) { // regular scoring macro
             intake.move(127);
             pros::delay(80);    
             HoodAir.set_value(true);
@@ -617,7 +614,7 @@ void opcontrol() {
             intake.move(0);
         }
 
-        else if (controller.get_digital_new_press(DIGITAL_R2)) {
+        else if (controller.get_digital_new_press(DIGITAL_R2)) { // lever arm change height macro
             if (ArmUp) {
                 LeverAir.set_value(false);
                 pros::delay(20);
@@ -631,7 +628,7 @@ void opcontrol() {
             }
         }
 
-        else if (controller.get_digital(DIGITAL_X)){
+        else if (controller.get_digital(DIGITAL_X)){ // fast scoring macro / ping pong tech
             intake.move(127);
             pros::delay(80);    
             HoodAir.set_value(true);
@@ -679,7 +676,7 @@ void opcontrol() {
                 pros::delay(20);
         }
 
-        else if (controller.get_digital_new_press(DIGITAL_B)) {
+        else if (controller.get_digital_new_press(DIGITAL_B)) { // Loader Mech down/up
             if (!LoaderUp) {
                 LoaderAir.set_value(true);
                 pros::delay(20);
@@ -691,14 +688,14 @@ void opcontrol() {
             }
         }
 
-        else if (LeverUp) {   // trying to move up
-            if (abs(lever.get_actual_velocity()) < 10) {
+        else if (LeverUp) {   // if lever trying to move up, when does it return down
+            if (abs(lever.get_actual_velocity()) < 10) { // actual velocity < expected velocity: jam or hardstop
                 leverStopCount++;
             } else {
                 leverStopCount = 0;
             }
 
-            if (leverStopCount >= 3) {
+            if (leverStopCount >= 5) {
                 LeverUp = false;
                 LeverMovingDown = true;
                 leverStopCount = 0;
@@ -708,7 +705,7 @@ void opcontrol() {
             }
         }
 
-        else if (LeverMovingDown) { // trying to move down
+        else if (LeverMovingDown) { // trying to move down, when does it hit hardstop
             if (abs(lever.get_actual_velocity()) < 10) {
                 leverStopCount++;
             } else {
@@ -729,10 +726,10 @@ void opcontrol() {
 
 
         else {
-            intake.move(0);
+            intake.move(0); // stop intake when we dont need it
 		    HoodAir.set_value(false); // close hood for default state
 
-            if(ArmUp) {
+            if(ArmUp) { // only if we arent trying to go undergoal
                 WingAir.set_value(true); // deafult for the wing is the up position
             }
         }
