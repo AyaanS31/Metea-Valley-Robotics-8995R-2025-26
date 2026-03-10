@@ -355,7 +355,7 @@ void auton_skills() {
     linear_pid(4, 0.35, 127, false);
     LoaderAir.set_value(true);
     LoaderUp = true;
-    do_turn_global(-135, 0.65, 80);
+    do_turn_global(-133, 0.65, 80);
     intake.move(127);
     linear_pid(14.5, 0.65, 127, true);
     lever.move(127);
@@ -363,11 +363,11 @@ void auton_skills() {
         lever.move(-127);
         pros::delay(50);
         lever.move(127);
-        pros::delay(200);
+        HoodAir.set_value(true);
+        pros::delay(500);
         lever.move(0);
         pros::delay(20);
-        HoodAir.set_value(true);
-        lever.move(50);
+        lever.move(80);
         pros::delay(500);
     lever.move(-127);
 
@@ -376,27 +376,29 @@ void auton_skills() {
     WingAir.set_value(true);
     WingUp = true;
     intake.move(0);
-    linear_pid(51.25, 1.5, 127, false);
+    linear_pid(47.75, 1.75, 127, false);
     HoodAir.set_value(false);
     intake.move(127);
     do_turn_global(-180, 0.65, 100);
 
     linear_pid(20, 0.65, 50, false);
-        linear_pid(3, 0.25, 80, false);
+        linear_pid(3, 0.25, 127, false);
+        intake.move(-127);
+        linear_pid(1, 0.125, 50, true);
+        intake.move(127);
+        linear_pid(3, 0.5, 127, false);
         linear_pid(1, 0.25, 50, true);
-        linear_pid(3, 0.5, 100, false);
-        linear_pid(1, 0.25, 50, true);
-        linear_pid(3, 0.5, 100, false);
+        linear_pid(3, 0.5, 127, false);
     do_turn_global(120, 0.65, 127);
     linear_pid(14, 0.8, 80, true);
     LoaderAir.set_value(false);
     LoaderUp = false;
-    do_turn_global(177, 0.5, 100);
+    do_turn_global(176, 0.5, 100);
 
-    linear_pid(75, 2.5, 127, true);
+    linear_pid(85, 3, 127, true);
     do_turn_global(90, 0.75, 100);
     linear_pid(14, 0.65, 90, false);
-    dist_to_back(14, 0.5); // idk 
+    dist_to_back(24.5, 0.5); // idk 
 
     do_turn_global(0, 0.65, 127);
     linear_pid(24, 1, 80, true);
@@ -408,6 +410,34 @@ void auton_skills() {
     linear_pid(5, 0.2, 100, true);
     pros::delay(500);
     lever.move(-127);
+
+    do_turn_global(0, 0.45, 127);
+    intake.move(127);
+        LoaderAir.set_value(true);
+    LoaderUp = true;
+
+    linear_pid(32, 1, 50, false);
+        linear_pid(3, 0.25, 127, false);
+        linear_pid(1, 0.25, 50, true);
+        linear_pid(3, 0.5, 1027, false);
+        // linear_pid(1, 0.25, 50, true);
+        // linear_pid(3, 0.5, 127, false);
+    do_turn_global(1.5, 0.5, 127);
+    linear_pid(35, 0.85, 80, true);
+    LoaderAir.set_value(false);
+    LoaderUp = false;
+    HoodAir.set_value(true);
+    intake.move(0);
+    lever.move(127);
+    pros::delay(500);
+    lever.move(80);
+    linear_pid(5, 0.2, 100, true);
+    pros::delay(500);
+    lever.move(-127);
+
+    linear_pid(12, 0.85, 80, true);
+    do_turn_global(90, 0.5, 127);
+    linear_pid(45, 1.25, 80, false);
 
     // move to second loader and back
 
@@ -429,96 +459,70 @@ void solo_awp(){
     intake.move(127);
     //square_to_wall(200);
     linear_pid(11, 0.33, 65, false); // in, sec, 127, backwards
-    dist_to_back(36, 0.25);
+    dist_to_back(34.676767, 0.25);
     //square_to_wall(250);
     //do_turn_global(0.5, 0.43, 100); // deg, sec, 127
 
-    linear_pid(34, 0.7, 127, true);
+    linear_pid(36, 0.65, 127, true);
     //square_to_wall(500);
-    dist_to_back(28.5, 0.5);
+    dist_to_back(28, 0.65);
+
     LeverAir.set_value(true);
     LeverUp = true;
     WingAir.set_value(true);
     WingUp = true;
-    do_turn_global(-88.5, 0.65, 80); // deg, sec, 127
+    do_turn_global(-88, 0.65, 80); // deg, sec, 127
     LoaderAir.set_value(true);
     LoaderUp = true;
     pros::delay(150);
-    linear_pid(19, 0.55, 50, false);
-        linear_pid(3, 0.25, 80, false);
-        do_turn_global(-88, 0.25, 127);
-        linear_pid(1, 0.05, 127, true); 
-        linear_pid(3, 0.15, 127, false); 
-        do_turn_global(-88.75, 0.1, 127);
-    linear_pid(39, 0.5, 100, true);
-    HoodAir.set_value(true);
-    intake.move(0);
-    lever.move(80);
-    linear_pid(5, 0.2, 100, true);
-    pros::delay(250);
-    LoaderAir.set_value(false);
-    LoaderUp = false;
-
-    linear_pid(12, 0.4, 127, false); 
-    lever.move(-127);
-    do_turn_global(26.5, 0.7, 95);
-    intake.move(127);
-    HoodAir.set_value(false);
-    linear_pid(28, 0.5, 127, false);
-    LoaderAir.set_value(true);
-    LoaderUp = true;
-    linear_pid(8, 0.3, 127, false); 
-
-    // loader done 
-    // go to middle goal
-    LeverAir.set_value(false);
-    LeverUp = false;
-    LoaderAir.set_value(false);
-    LoaderUp = false; 
-    do_turn_global(-1.25, 0.4, 127); 
-    linear_pid(40, .8, 127, false);
-    LoaderAir.set_value(true);
-    LoaderUp = true;
-    linear_pid(15.5, 0.5, 127, false); 
-    do_turn_global(-45, 0.45, 127); 
-    linear_pid(13.5, 0.45, 60, true);
+    linear_pid(15, 0.5, 60, false);
+        linear_pid(3, 0.125, 80, false);
+        do_turn_global(-87.9, 0.25, 100);
+        //linear_pid(1, 0.05, 50, true);
+        linear_pid(10, 0.5, 127, false);
+    linear_pid(39, 0.65, 80, true);
     HoodAir.set_value(true);
     lever.move(127);
     pros::delay(150);
-    intake.move(0);
+    lever.move(80);
     pros::delay(100);
-    lever.move(80);
-    pros::delay(250); 
-    HoodAir.set_value(false);
+    intake.move(-127);
+    linear_pid(15, 0.175, 127, true);
+    pros::delay(100);
     LoaderAir.set_value(false);
     LoaderUp = false;
     lever.move(-127);
-    LeverAir.set_value(true);
-    LeverUp = true;
-    intake.move(127);
-    // going to the loader for long goal 
 
-    linear_pid(44.75, 1, 127, false);
+    do_turn_global(30, 1, 127);
+    intake.move(127);
+    HoodAir.set_value(false);
+    //do_turn_global(25, 0.35, 127);
+    linear_pid(14, 0.29, 127, false); 
     LoaderAir.set_value(true);
     LoaderUp = true;
-    do_turn_global(-90, 0.35, 127);
-    linear_pid(12, 0.3, 127, false);
-    linear_pid(12, 0.125, 80, false);
-        linear_pid(3, 0.1, 100, false);
-        lever.move(50);
-        pros::delay(25);
-        lever.move(-50); 
-        linear_pid(1, 0.05, 127, true);
-        lever.move(0);
-        linear_pid(3, 0.05, 127, false);
-        do_turn_global(-95, 0.25, 127);
-    linear_pid(60, 0.5, 127, true);
+    linear_pid(14.5, 0.35, 127, false); 
+    do_turn_global(50, 0.45, 127);
     LoaderAir.set_value(false);
     LoaderUp = false;
-    HoodAir.set_value(true);
-    intake.move(0);
-    lever.move(127);
-    linear_pid(5, 0.2, 100, true);
+    linear_pid(16, 0.5, 127, false); 
+    intake.move(-100);
+
+
+    // linear_pid(16, 0.45, 127, true); 
+    // do_turn_global(0, 0.5, 127);
+    //linear_pid(30, 0.5, 127, true); 
+
+    // linear_pid(28, 0.45, 127, false);
+    // LoaderAir.set_value(true);
+    // LoaderUp = true;
+    // linear_pid(12, 0.3, 127, false); 
+    // do_turn_global(42, 0.25, 127);
+    // LoaderAir.set_value(false);
+    // LoaderUp = false;
+    // linear_pid(12, 0.35, 127, false); 
+    // intake.move(-100);
+    // linear_pid(6, 0.2, 127, false); 
+
 }
 
 void elite_elims_right(){
@@ -649,8 +653,8 @@ void opcontrol() {
             LeverUp = true;
             leverStopCount = 0;
             lever.move(127); // overcome any jammed Blocks/ overheated lever motor
-            pros::delay(100); 
-            lever.move(35); // main scoring speed at ~25% 
+            pros::delay(250); 
+            lever.move(50); // main scoring speed at ~25% 
 
             intake.move(0);
         }
@@ -699,8 +703,6 @@ void opcontrol() {
                 LeverUp = false;
                 LeverMovingDown = true;
                 leverStopCount = 0;
-
-                HoodAir.set_value(false);
                 lever.move(-127);
             }
         }
@@ -716,12 +718,17 @@ void opcontrol() {
                 LeverMovingDown = false;
                 leverStopCount = 0;
                 lever.move(-5); // small force down in case it bounces up 
+                HoodAir.set_value(false);
             }
         }
 
         else if (controller.get_digital(DIGITAL_DOWN)) { // open the hood for taking Blocks in goal
                  HoodAir.set_value(true);
                  pros::delay(20);
+         }
+
+         else if (controller.get_digital(DIGITAL_RIGHT)) { // open the hood for taking Blocks in goal
+            lever.move(127);
          }
 
 

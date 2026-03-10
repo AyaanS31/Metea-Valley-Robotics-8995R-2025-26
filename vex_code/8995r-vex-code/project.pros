@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "lemme hit",
+    "project_name": "guh",
     "target": "v5",
     "templates": {
       "LemLib": {
