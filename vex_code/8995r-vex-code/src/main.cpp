@@ -346,108 +346,146 @@ void auton_skills() {
     // do_turn_global(-88.5, 0.65, 80);
 
     HoodAir.set_value(false);
-    linear_pid(14, 0.5, 80, false);
-    do_turn_global(-45, 0.5, 80);
-    intake.move(127);
-    linear_pid(6, 0.35, 127, false);
-    linear_pid(6, 0.45, 127, false);
-        intake.move(0);
-    linear_pid(4, 0.35, 127, false);
-    LoaderAir.set_value(true);
+    // linear_pid(14, 0.5, 80, false);
+    // do_turn_global(-45, 0.5, 80);
+    // intake.move(127);
+    // linear_pid(6, 0.35, 127, false);
+    // linear_pid(6, 0.45, 127, false);
+    //     intake.move(0);
+    // linear_pid(4, 0.35, 127, false);
+    // LoaderAir.set_value(true);
+    // LoaderUp = true;
+    // do_turn_global(-133, 0.65, 80);
+    // intake.move(127);
+    // linear_pid(14.5, 0.65, 127, true);
+    // lever.move(127);
+    //     pros::delay(100);
+    //     lever.move(-127);
+    //     pros::delay(50);
+    //     lever.move(127);
+    //     HoodAir.set_value(true);
+    //     pros::delay(500);
+    //     lever.move(0);
+    //     pros::delay(20);
+    //     lever.move(70);
+    //     pros::delay(500);
+    // lever.move(-127);
+
+    // LeverAir.set_value(true);
+    // LeverUp = true;
+    // WingAir.set_value(true);
+    // WingUp = true;
+    // intake.move(0);
+    // linear_pid(47.75, 1.75, 127, false);
+    // HoodAir.set_value(false);
+    // intake.move(127);
+    // do_turn_global(-180, 0.65, 100);
+
+    // linear_pid(20, 0.65, 50, false);
+    //     linear_pid(3, 0.25, 127, false);
+    //     intake.move(-127);
+    //     linear_pid(1, 0.125, 50, true);
+    //     intake.move(127);
+    //     linear_pid(3, 0.5, 127, false);
+    //     linear_pid(1, 0.25, 50, true);
+    //     linear_pid(3, 0.5, 127, false);
+    // do_turn_global(120, 0.65, 127);
+    // linear_pid(14, 0.8, 80, true);
+    // LoaderAir.set_value(false);
+    // LoaderUp = false;
+    // do_turn_global(176, 0.5, 100);
+
+    // linear_pid(85, 2.67, 127, true);
+    // do_turn_global(90, 0.75, 100);
+    // linear_pid(14, 0.65, 90, false);
+    // dist_to_back(24.67, 0.4); // idk 
+
+    // do_turn_global(0, 0.65, 127);
+    // linear_pid(24, 0.7, 80, true);
+    // HoodAir.set_value(true);
+    // intake.move(0);
+    // lever.move(127);
+    // pros::delay(100);
+    // lever.move(70);
+    // linear_pid(5, 0.2, 100, true);
+    // pros::delay(550);
+    // lever.move(-127);
+
+    // do_turn_global(0, 0.45, 127);
+    // intake.move(127);
+    //     LoaderAir.set_value(true);
+    // LoaderUp = true;
+
+    // do_turn_global(10, 0.5, 127); 
+    // linear_pid(32, 1, 50, false);
+    //     linear_pid(4, 0.25, 127, false);
+    //     linear_pid(3, 0.5, 127, false);
+    //     linear_pid(4, 0.25, 127, false); 
+    //     linear_pid(2, 0.25, 127, false); 
+    //     pros::delay(200); 
+    //     // problem arises here 
+
+    // linear_pid(10, 0.4, 70, true); 
+    // do_turn_global(1.4, 0.5, 127);
+    // linear_pid(25, 0.85, 60, true);
+    // LoaderAir.set_value(false);
+    // LoaderUp = false;
+    // HoodAir.set_value(true);
+    // intake.move(0);
+    // lever.move(127);
+    // pros::delay(100);
+    // lever.move(60);
+    // linear_pid(5, 0.2, 100, true);
+    // pros::delay(500);
+    // lever.move(-127);
+
+        // fried ahh clear park zone
+    do_turn_global(45, 0.67, 127); 
+    linear_pid(40, 0.67, 127, false); 
+    do_turn_global(90, 0.67, 127); 
+
+    intake.move(127); 
+    linear_pid(3, 0.67, 127, false); 
+    LoaderAir.set_value(true); 
     LoaderUp = true;
-    do_turn_global(-133, 0.65, 80);
-    intake.move(127);
-    linear_pid(14.5, 0.65, 127, true);
-    lever.move(127);
-        pros::delay(100);
-        lever.move(-127);
-        pros::delay(50);
-        lever.move(127);
-        HoodAir.set_value(true);
-        pros::delay(500);
-        lever.move(0);
-        pros::delay(20);
-        lever.move(80);
-        pros::delay(500);
-    lever.move(-127);
+    linear_pid(20, 0.67, 127, false); 
 
-    LeverAir.set_value(true);
-    LeverUp = true;
-    WingAir.set_value(true);
-    WingUp = true;
-    intake.move(0);
-    linear_pid(47.75, 1.75, 127, false);
-    HoodAir.set_value(false);
-    intake.move(127);
-    do_turn_global(-180, 0.65, 100);
-
-    linear_pid(20, 0.65, 50, false);
-        linear_pid(3, 0.25, 127, false);
-        intake.move(-127);
-        linear_pid(1, 0.125, 50, true);
-        intake.move(127);
-        linear_pid(3, 0.5, 127, false);
-        linear_pid(1, 0.25, 50, true);
-        linear_pid(3, 0.5, 127, false);
-    do_turn_global(120, 0.65, 127);
-    linear_pid(14, 0.8, 80, true);
-    LoaderAir.set_value(false);
-    LoaderUp = false;
-    do_turn_global(176, 0.5, 100);
-
-    linear_pid(85, 3, 127, true);
-    do_turn_global(90, 0.75, 100);
-    linear_pid(14, 0.65, 90, false);
-    dist_to_back(24.5, 0.5); // idk 
-
-    do_turn_global(0, 0.65, 127);
-    linear_pid(24, 1, 80, true);
-    HoodAir.set_value(true);
-    intake.move(0);
-    lever.move(127);
-    pros::delay(100);
-    lever.move(50);
-    linear_pid(5, 0.2, 100, true);
-    pros::delay(500);
-    lever.move(-127);
-
-    do_turn_global(0, 0.45, 127);
-    intake.move(127);
-        LoaderAir.set_value(true);
-    LoaderUp = true;
-
-    linear_pid(32, 1, 50, false);
-        linear_pid(3, 0.25, 127, false);
-        linear_pid(1, 0.25, 50, true);
-        linear_pid(3, 0.5, 1027, false);
-        // linear_pid(1, 0.25, 50, true);
-        // linear_pid(3, 0.5, 127, false);
-    do_turn_global(1.5, 0.5, 127);
-    linear_pid(35, 0.85, 80, true);
-    LoaderAir.set_value(false);
-    LoaderUp = false;
-    HoodAir.set_value(true);
-    intake.move(0);
-    lever.move(127);
-    pros::delay(500);
-    lever.move(80);
-    linear_pid(5, 0.2, 100, true);
-    pros::delay(500);
-    lever.move(-127);
-
-    linear_pid(12, 0.85, 80, true);
-    do_turn_global(90, 0.5, 127);
-    linear_pid(45, 1.25, 80, false);
-
-    // move to second loader and back
-
-    // fried ahh clear park zone
-
+    /// didnt test ts 
     // score middle goal
+    linear_pid(3, 0.23, 80, true); // reset with the park zone 
+    do_turn_global(-90, 0.67, 127); 
+    intake.move(0); 
+    LoaderAir.set_value(false); 
+    LoaderUp = false; 
+    linear_pid(36, 0.67, 127, false); 
+    HoodAir.set_value(true); 
+    do_turn_global(45, 0.45, 127); 
+    LeverAir.set_value(true);
+    LeverUp = true; 
+    linear_pid(4, 0.34, 65, true); 
+    lever.move(40); 
+    pros::delay(700); 
+
     
     // third loader
+    // linear_pid(30, 0.8, 127, false); 
+    // do_turn_global(-90, 0.67, 127); 
+    // LoaderAir.set_value(true); 
+    // LoaderUp = true; 
+    // intake.move(127); 
+    // linear_pid(16, 1, 50, false); // adjust based on real life 
+    //     linear_pid(3, 0.25, 127, false);
+    //     linear_pid(2, 0.25, 50, true);
+    //     linear_pid(3, 0.5, 127, false);
+    //     linear_pid(4, 0.25, 127, false); 
+    //     pros::delay(200); 
+
+    // do_turn_global(-90, 0.67, 127);
+    // linear_pid(35, 0.85, 127, true); 
+    
 
     // go and score
+
 
     // fourth loader and score
 
@@ -581,8 +619,7 @@ void elite_elims_left(){
 }
 
 void autonomous() {
-    //solo_awp();
-    auton_skills();
+    auton_skills(); 
 }
 
 // driver control macros and movement
